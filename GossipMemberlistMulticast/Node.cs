@@ -23,6 +23,17 @@ namespace GossipMemberlistMulticast
 
         public string Id => selfNodeInformation.Id;
 
+        public IReadOnlyCollection<NodeInformation> KnownNodeInformation
+        {
+            get
+            {
+                lock (lockObject)
+                {
+                    return nodeInformationDictionary.Values.ToList().AsReadOnly();
+                }
+            }
+        }
+
         public Ping1Response Syn(Ping1Request syn)
         {
             lock (lockObject)

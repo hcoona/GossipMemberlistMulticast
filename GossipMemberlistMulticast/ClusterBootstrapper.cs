@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +15,18 @@ namespace GossipMemberlistMulticast
         private readonly Func<IEnumerable<string>> seedsProvider;
         private readonly NodeInformation selfNodeInformation;
 
+        public ClusterBootstrapper(
+            IServiceProvider serviceProvider,
+            ILogger<ClusterBootstrapper> logger,
+            Func<IEnumerable<string>> seedsProvider,
+            NodeInformation selfNodeInformation)
+        {
+            this.serviceProvider = serviceProvider;
+            this.logger = logger;
+            this.seedsProvider = seedsProvider;
+            this.selfNodeInformation = selfNodeInformation;
+        }
+
         public async Task<Node> Bootstrap(
             Func<string, Gossiper.GossiperClient> clientFactory,
             CancellationToken cancellationToken = default)
@@ -21,7 +34,10 @@ namespace GossipMemberlistMulticast
             var node = new Node(
                 serviceProvider.GetRequiredService<ILogger<Node>>(),
                 selfNodeInformation,
-                new Dictionary<string, NodeInformation>(StringComparer.InvariantCultureIgnoreCase));
+                new Dictionary<string, NodeInformation>(StringComparer.InvariantCultureIgnoreCase)
+                {
+                    { selfNodeInformation.Id, selfNodeInformation }
+                });
 
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -58,6 +74,20 @@ namespace GossipMemberlistMulticast
                 }
             }
             throw new TaskCanceledException();
+        }
+
+        public async Task<Node> BootstrapSeed(
+            CancellationToken cancellationToken = default)
+        {
+            seedsProvider().Select(v => new NodeInformation(
+                ))
+            return new Node(
+                serviceProvider.GetRequiredService<ILogger<Node>>(),
+                selfNodeInformation,
+                new Dictionary<string, NodeInformation>(StringComparer.InvariantCultureIgnoreCase)
+                {
+                    { selfNodeInformation.Id, selfNodeInformation }
+                });
         }
     }
 }

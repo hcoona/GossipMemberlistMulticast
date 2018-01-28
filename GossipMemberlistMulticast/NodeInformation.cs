@@ -14,10 +14,13 @@ namespace GossipMemberlistMulticast
 
         public NodeInformation(
             ILogger<NodeInformation> logger,
-            string id)
+            string id,
+            NodeState nodeState)
         {
             this.logger = logger;
             this.Id = id;
+
+            Properties.NodeProperties_[NodeStateKey].StateProperty = nodeState;
         }
 
         public string Id { get; }
