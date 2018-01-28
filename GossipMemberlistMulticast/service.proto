@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package GossipMemberlistMulticast;
+
+import "google/protobuf/any.proto";
+
+enum NodeState {
+  Unknown = 0;
+  Live = 1;
+  Suspect = 2;
+  Dead = 3;
+}
+
+message VersionedProperty {
+  int64 version = 1;
+  oneof property {
+    string string_property = 2;
+    NodeState state_property = 3;
+    google.protobuf.Any any_property = 4;
+  }
+}
+
+message NodeInformation {
+  string endpoint = 1;
+  int64 node_version = 2;
+  map<string, VersionedProperty> properties = 3;
+}
+
+message NodeInformationSynopsis {
+  string endpoint = 1;
+  int64 node_version = 2;
+  int64 last_known_property_version = 3;
+}
+
+message Ping1Request {
+  repeated NodeInformationSynopsis nodes_synopsis = 1;
+}
+
+message Ping1Response {
+  repeated NodeInformationSynopsis required_nodes_synopsis = 1;
+  repeated NodeInformation updated_nodes = 2;
+}
+
+message Ping2Request {
+  repeated NodeInformation updated_nodes = 1;
+}
+
+message Ping2Response {
+}
+
+message ForwardRequest {
+  string target_endpoint = 1;
+  string target_method = 2;
+  oneof payload {
+    Ping1Request ping1_request = 3;
+    Ping2Request ping2_request = 4;
+  }
+}
+
+message ForwardResponse {
+  oneof response {
+    string errorMessage = 1;
+    Ping1Response ping1_response = 2;
+    Ping2Response ping2_response = 3;
+  }
+}
+
+service Gossiper {
+  rpc Ping1 (Ping1Request) returns (Ping1Response) {}
+  rpc Ping2 (Ping2Request) returns (Ping2Response) {}
+
+  rpc Forward (ForwardRequest) returns (ForwardResponse) {}
+}
