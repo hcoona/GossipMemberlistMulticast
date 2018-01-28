@@ -1,0 +1,16 @@
+language: csharp
+solution: GossipMemberlistMulticast.sln
+dotnet: 2.0.3
+mono: none
+
+git:
+  depth: 1
+
+before_install:
+  - git fetch --unshallow
+
+before_script:
+  - dotnet restore
+
+script:
+  - dotnet build

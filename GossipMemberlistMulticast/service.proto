@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package GossipMemberlistMulticast;
+
+import "google/protobuf/any.proto";
+
+enum NodeState {
+  Unknown = 0;
+  Live = 1;
+  Suspect = 2;
+  Dead = 3;
+}
+
+message Version {
+  int64 version = 1;
+}
+
+message VersionedProperty {
+  Version version = 1;
+  oneof property {
+    string string_property = 2;
+    NodeState state_property = 3;
+    google.protobuf.Any any_property = 4;
+  }
+}
+
+message NodePropertyVersions {
+  // NodeId -> NodeVersion
+  map<string, Version> node_property_versions = 1;
+}
+
+message NodeProperties {
+  // PropertyKey -> VersionedProperty
+  map<string, VersionedProperty> node_properties = 1;
+}
+
+message Ping1Request {
+  NodePropertyVersions node_property_versions = 1;
+}
+
+message Ping1Response {
+  NodePropertyVersions required_node_property_versions = 1;
+  // NodeId -> NodeProperties
+  map<string, NodeProperties> updated_node_properties = 2;
+}
+
+message Ping2Request {
+  // NodeId -> NodeProperties
+  map<string, NodeProperties> updated_node_properties = 1;
+}
+
+message Ping2Response {
+}
+
+message RequestMessage {
+  string node_id = 1;
+  oneof request {
+    Ping1Request ping1_request = 2;
+    Ping2Request ping2_request = 3;
+  }
+}
+
+message ResponseMessage {
+  string node_id = 1;
+  oneof response {
+    Ping1Response ping1_response = 2;
+    Ping2Response ping2_response = 3;
+  }
+}
+
+message ForwardRequest {
+  string target_endpoint = 1;
+  string target_method = 2;
+  oneof payload {
+    RequestMessage requestMessage = 3;
+  }
+}
+
+message ForwardResponse {
+  oneof response {
+    ResponseMessage responseMessage = 1;
+    string errorMessage = 2;
+  }
+}
+
+service Gossiper {
+  rpc Ping1 (RequestMessage) returns (ResponseMessage) {}
+  rpc Ping2 (RequestMessage) returns (ResponseMessage) {}
+
+  rpc Forward (ForwardRequest) returns (ForwardResponse) {}
+}

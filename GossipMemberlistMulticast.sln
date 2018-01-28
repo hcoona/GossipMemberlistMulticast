@@ -1,0 +1,45 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27130.2026
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GossipMemberlistMulticast", "GossipMemberlistMulticast\GossipMemberlistMulticast.csproj", "{AC3A3389-5DDB-4E46-8780-4B1D2C870BFF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{3714C4E0-B6EA-454E-B23E-1C4433EC252D}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+		.gitignore = .gitignore
+		.travis.yml = .travis.yml
+		appveyor.yml = appveyor.yml
+		common.props = common.props
+		Directory.Build.props = Directory.Build.props
+		LICENSE.txt = LICENSE.txt
+		README.md = README.md
+		version.json = version.json
+		version.props = version.props
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GossipMemberlistMulticast.Tests", "GossipMemberlistMulticast.Tests\GossipMemberlistMulticast.Tests.csproj", "{1045A529-BC03-49E2-A0DD-267E751B2AD7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AC3A3389-5DDB-4E46-8780-4B1D2C870BFF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AC3A3389-5DDB-4E46-8780-4B1D2C870BFF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AC3A3389-5DDB-4E46-8780-4B1D2C870BFF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AC3A3389-5DDB-4E46-8780-4B1D2C870BFF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1045A529-BC03-49E2-A0DD-267E751B2AD7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1045A529-BC03-49E2-A0DD-267E751B2AD7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1045A529-BC03-49E2-A0DD-267E751B2AD7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1045A529-BC03-49E2-A0DD-267E751B2AD7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {73E5C2DF-DCB5-4986-8E4D-A1B5F2059032}
+	EndGlobalSection
+EndGlobal
