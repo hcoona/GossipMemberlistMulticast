@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 
@@ -6,6 +7,30 @@ namespace GossipMemberlistMulticast
     public partial class NodeInformation
     {
         private static readonly string NodeStateKey = "node_state";
+
+        public static NodeInformation CreateSelfNode(string endpoint) =>
+            new NodeInformation
+            {
+                Endpoint = endpoint,
+                NodeVersion = Process.GetCurrentProcess().StartTime.ToFileTimeUtc(),
+                NodeStateProperty = new VersionedProperty
+                {
+                    Version = 1,
+                    StateProperty = NodeState.Live
+                }
+            };
+
+        public static NodeInformation CreateSeedNode(string endpoint) =>
+            new NodeInformation
+            {
+                Endpoint = endpoint,
+                NodeVersion = 0,
+                NodeStateProperty = new VersionedProperty
+                {
+                    Version = 0,
+                    StateProperty = NodeState.Unknown
+                }
+            };
 
         public VersionedProperty NodeStateProperty
         {

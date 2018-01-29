@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -37,27 +36,10 @@ namespace GossipMemberlistMulticast
 
         public Task StartAsync(CancellationToken cancellationToken = default)
         {
-            var selfNodeInformation = new NodeInformation
-            {
-                Endpoint = selfNodeEndPoint,
-                NodeVersion = Process.GetCurrentProcess().StartTime.ToFileTimeUtc(),
-                NodeStateProperty = new VersionedProperty
-                {
-                    Version = 1,
-                    StateProperty = NodeState.Live
-                }
-            };
+            var selfNodeInformation = NodeInformation.CreateSelfNode(selfNodeEndPoint);
             var seedsNodeInformation = seedsProvider()
-                .Select(endpoint => new NodeInformation
-                {
-                    Endpoint = endpoint,
-                    NodeVersion = 0,
-                    NodeStateProperty = new VersionedProperty
-                    {
-                        Version = 0,
-                        StateProperty = NodeState.Unknown
-                    }
-                }).ToArray();
+                .Select(NodeInformation.CreateSeedNode)
+                .ToArray();
 
             var nodeInformationDictionary = new Dictionary<string, NodeInformation>(StringComparer.InvariantCultureIgnoreCase)
             {

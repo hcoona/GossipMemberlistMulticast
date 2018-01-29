@@ -21,31 +21,29 @@ namespace GossipMemberlistMulticast.Tests
             this.container = services.BuildServiceProvider();
         }
 
-        private NodeInformation CreateNodeInformation(string endpoint, NodeState nodeState)
+        [Fact]
+        public void TestSelfNodeInitialState()
         {
-            return new NodeInformation
-            {
-                Endpoint = endpoint,
-                NodeVersion = Process.GetCurrentProcess().StartTime.ToFileTimeUtc(),
-                NodeStateProperty = new VersionedProperty
-                {
-                    Version = 1,
-                    StateProperty = nodeState
-                }
-            };
+            const string endpoint = "127.0.0.1:12251";
+
+            var n = NodeInformation.CreateSelfNode(endpoint);
+            Assert.Equal(endpoint, n.Endpoint);
+            Assert.Equal(NodeState.Live, n.NodeState);
+            Assert.Equal(Process.GetCurrentProcess().StartTime.ToFileTimeUtc(), n.NodeVersion);
+            Assert.Equal(1, n.LastKnownPropertyVersion);
+            Assert.Single(n.Properties);
         }
 
         [Fact]
-        public void TestInitialState()
+        public void TestSeedNodeInitialState()
         {
-            var endpoint = "127.0.0.1:1080";
-            var nodeState = NodeState.Live;
+            const string endpoint = "127.0.0.1:12251";
 
-            var n = CreateNodeInformation(endpoint, nodeState);
+            var n = NodeInformation.CreateSeedNode(endpoint);
             Assert.Equal(endpoint, n.Endpoint);
-            Assert.Equal(nodeState, n.NodeState);
-            Assert.Equal(Process.GetCurrentProcess().StartTime.ToFileTimeUtc(), n.NodeVersion);
-            Assert.Equal(1, n.LastKnownPropertyVersion);
+            Assert.Equal(NodeState.Unknown, n.NodeState);
+            Assert.Equal(0, n.NodeVersion);
+            Assert.Equal(0, n.LastKnownPropertyVersion);
             Assert.Single(n.Properties);
         }
     }
