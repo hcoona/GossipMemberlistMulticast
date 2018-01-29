@@ -49,7 +49,7 @@ namespace GossipMemberlistMulticast
 
                         var synResponse = await client.Ping1Async(new RequestMessage
                         {
-                            NodeId = selfNodeInformation.EndPoint,
+                            NodeEndpoint = selfNodeInformation.EndPoint,
                             Ping1Request = new Ping1Request
                             {
                                 NodePropertyVersions = selfNodeInformation.GetNodePropertyVersions()
@@ -60,7 +60,7 @@ namespace GossipMemberlistMulticast
 
                         await client.Ping2Async(new RequestMessage
                         {
-                            NodeId = selfNodeInformation.EndPoint,
+                            NodeEndpoint = selfNodeInformation.EndPoint,
                             Ping2Request = ack2Request
                         });
 
@@ -80,6 +80,9 @@ namespace GossipMemberlistMulticast
             CancellationToken cancellationToken = default)
         {
             seedsProvider().Select(v => new NodeInformation(
+                serviceProvider.GetRequiredService<ILogger<NodeInformation>>(),
+                v,
+
                 ))
             return new Node(
                 serviceProvider.GetRequiredService<ILogger<Node>>(),
