@@ -34,6 +34,19 @@ namespace GossipMemberlistMulticast
             }
         }
 
+        public NodePropertyVersions GetNodePropertyVersions()
+        {
+            lock (lockObject)
+            {
+                var result = new NodePropertyVersions();
+                foreach (var p in nodeInformationDictionary)
+                {
+                    result.NodePropertyVersions_.Add(p.Key, new Version { Version_ = p.Value.Version });
+                }
+                return result;
+            }
+        }
+
         public Ping1Response Syn(Ping1Request syn)
         {
             lock (lockObject)

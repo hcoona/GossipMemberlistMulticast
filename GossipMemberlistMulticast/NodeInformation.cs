@@ -59,16 +59,6 @@ namespace GossipMemberlistMulticast
 
         public event EventHandler<NodeStateChangedEventArgs> OnStateChanged;
 
-        public NodePropertyVersions GetNodePropertyVersions()
-        {
-            var result = new NodePropertyVersions();
-            foreach (var p in Properties.NodeProperties_)
-            {
-                result.NodePropertyVersions_.Add(p.Key, p.Value.Version);
-            }
-            return result;
-        }
-
         public NodeProperties GetPropertiesAfterVersion(long version)
         {
             var deltaNodeProperties = new NodeProperties();

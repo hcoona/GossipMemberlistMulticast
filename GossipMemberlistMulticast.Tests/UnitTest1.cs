@@ -31,7 +31,7 @@ namespace GossipMemberlistMulticast.Tests
                 TargetMethod = "Ping1",
                 RequestMessage = new RequestMessage
                 {
-                    NodeId = "test_node1",
+                    NodeEndpoint = "test_node1",
                     Ping1Request = new Ping1Request()
                 }
             });

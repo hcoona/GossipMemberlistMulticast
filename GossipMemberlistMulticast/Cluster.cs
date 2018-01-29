@@ -91,31 +91,13 @@ namespace GossipMemberlistMulticast
             var random = new Random();
             while (!cancellationToken.IsCancellationRequested)
             {
-                var liveNodes = node.KnownNodeInformation
-                    .Where(n => n.State == NodeState.Live)
-                    .Where(n => n.EndPoint != selfNodeEndPoint)
-                    .ToArray();
-                var nonLiveNodes = node.KnownNodeInformation
-                    .Where(n => n.State != NodeState.Live)
-                    .ToArray();
+                NodeInformation peer = PickRandomNode(random);
 
-                if (liveNodes.Any() && nonLiveNodes.Any())
+                if (peer != null)
                 {
-                    // Probably choose non-live nodes.
-                    NodeInformation peer;
-                    // TODO: Read from configuration
-                    if (random.NextDouble() > 0.1)
-                    {
-                        peer = liveNodes.ChooseRandom(random);
-                    }
-                    else
-                    {
-                        peer = nonLiveNodes.ChooseRandom(random);
-                    }
-
                     try
                     {
-                        await SyncWithPeerAsync(peer);
+                        await SyncWithPeerAsync(peer, random, cancellationToken);
                     }
                     catch (Exception ex)
                     {
@@ -124,24 +106,136 @@ namespace GossipMemberlistMulticast
                         peer.State = NodeState.Dead;
                     }
                 }
-                else if (nonLiveNodes.Any())
-                {
-                    logger.LogWarning("There's no live nodes except than self");
-                }
-                else
-                {
-                    logger.LogInformation("There's no non-live nodes");
-                }
 
                 await Task.Delay(1000);
             }
         }
 
-        private Task SyncWithPeerAsync(NodeInformation peer)
+        private NodeInformation PickRandomNode(Random random)
         {
-            var client = clientFactory(peer.EndPoint.ToString());
-            // Ping/Forward
-            throw new NotImplementedException();
+            var liveNodes = node.KnownNodeInformation
+                                .Where(n => n.State == NodeState.Live)
+                                .Where(n => n.EndPoint != selfNodeEndPoint)
+                                .ToArray();
+            var nonLiveNodes = node.KnownNodeInformation
+                .Where(n => n.State != NodeState.Live)
+                .ToArray();
+
+            if (liveNodes.Any() && nonLiveNodes.Any())
+            {
+                // Probably choose non-live nodes.
+                // TODO: Read from configuration
+                if (random.NextDouble() > 0.1)
+                {
+                    return liveNodes.ChooseRandom(random);
+                }
+                else
+                {
+                    return nonLiveNodes.ChooseRandom(random);
+                }
+            }
+            else if (nonLiveNodes.Any())
+            {
+                logger.LogWarning("There's no live nodes except than self");
+                return nonLiveNodes.ChooseRandom(random);
+            }
+            else if (liveNodes.Any())
+            {
+                logger.LogInformation("There's no non-live nodes");
+                return liveNodes.ChooseRandom(random);
+            }
+            else
+            {
+                logger.LogWarning("There are no other nodes than self");
+                return null;
+            }
+        }
+
+        private async Task SyncWithPeerAsync(NodeInformation peer, Random random, CancellationToken cancellationToken)
+        {
+            var client = clientFactory.Invoke(peer.EndPoint.ToString());
+            var synRequest = new RequestMessage
+            {
+                NodeEndpoint = selfNodeEndPoint,
+                Ping1Request = new Ping1Request
+                {
+                    NodePropertyVersions = node.GetNodePropertyVersions()
+                }
+            };
+
+            bool failed = false;
+            try
+            {
+                var synResponse = await client.Ping1Async(synRequest, cancellationToken: cancellationToken);
+                var ack2Request = node.Ack1(synResponse.Ping1Response);
+
+                var ack2Response = await client.Ping2Async(
+                    new RequestMessage
+                    {
+                        NodeEndpoint = selfNodeEndPoint,
+                        Ping2Request = ack2Request
+                    }, cancellationToken: cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(default, ex, "Cannot ping peer {0} because {1}", peer.EndPoint, ex);
+                failed = true;
+            }
+
+            if (failed)
+            {
+                // TODO: pick k nodes & forward ping concurrently, currently only implement k = 1
+                var forwarder = PickRandomNode(random);
+                logger.LogInformation("Pick peer {0} as forwarder to connect peer {1}", forwarder.EndPoint, peer.EndPoint);
+                client = clientFactory.Invoke(forwarder.EndPoint);
+
+                var forwardedSynResponse = await client.ForwardAsync(
+                    new ForwardRequest
+                    {
+                        TargetEndpoint = peer.EndPoint,
+                        TargetMethod = nameof(client.Ping1),
+                        RequestMessage = synRequest
+                    }, cancellationToken: cancellationToken);
+                ResponseMessage synResponse = null;
+                switch (forwardedSynResponse.ResponseCase)
+                {
+                    case ForwardResponse.ResponseOneofCase.ErrorMessage:
+                        // TODO: Exception type
+                        throw new Exception(forwardedSynResponse.ErrorMessage);
+                    case ForwardResponse.ResponseOneofCase.None:
+                        // TODO: Exception type
+                        throw new Exception("Forward response not set content from remote");
+                    case ForwardResponse.ResponseOneofCase.ResponseMessage:
+                        synResponse = forwardedSynResponse.ResponseMessage;
+                        break;
+                }
+                var ack2Request = node.Ack1(synResponse.Ping1Response);
+
+                var forwardedAck2Response = await client.ForwardAsync(
+                    new ForwardRequest
+                    {
+                        TargetEndpoint = peer.EndPoint,
+                        TargetMethod = nameof(client.Ping2),
+                        RequestMessage = new RequestMessage
+                        {
+                            NodeEndpoint = selfNodeEndPoint,
+                            Ping2Request = ack2Request
+                        }
+                    }, cancellationToken: cancellationToken);
+                ResponseMessage ack2Response = null;
+                switch (forwardedAck2Response.ResponseCase)
+                {
+                    case ForwardResponse.ResponseOneofCase.ErrorMessage:
+                        // TODO: Exception type
+                        throw new Exception(forwardedSynResponse.ErrorMessage);
+                    case ForwardResponse.ResponseOneofCase.None:
+                        // TODO: Exception type
+                        throw new Exception("Forward response not set content from remote");
+                    case ForwardResponse.ResponseOneofCase.ResponseMessage:
+                        ack2Response = forwardedAck2Response.ResponseMessage;
+                        break;
+                }
+            }
         }
     }
 }
