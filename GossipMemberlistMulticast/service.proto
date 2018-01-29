@@ -25,7 +25,7 @@ message VersionedProperty {
 }
 
 message NodePropertyVersions {
-  // NodeId -> NodeVersion
+  // NodeEndPoint -> NodeVersion
   map<string, Version> node_property_versions = 1;
 }
 
@@ -40,12 +40,12 @@ message Ping1Request {
 
 message Ping1Response {
   NodePropertyVersions required_node_property_versions = 1;
-  // NodeId -> NodeProperties
+  // NodeEndPoint -> NodeProperties
   map<string, NodeProperties> updated_node_properties = 2;
 }
 
 message Ping2Request {
-  // NodeId -> NodeProperties
+  // NodeEndPoint -> NodeProperties
   map<string, NodeProperties> updated_node_properties = 1;
 }
 
@@ -53,7 +53,7 @@ message Ping2Response {
 }
 
 message RequestMessage {
-  string node_id = 1;
+  string node_endpoint = 1;
   oneof request {
     Ping1Request ping1_request = 2;
     Ping2Request ping2_request = 3;
@@ -61,7 +61,7 @@ message RequestMessage {
 }
 
 message ResponseMessage {
-  string node_id = 1;
+  string node_endpoint = 1;
   oneof response {
     Ping1Response ping1_response = 2;
     Ping2Response ping2_response = 3;

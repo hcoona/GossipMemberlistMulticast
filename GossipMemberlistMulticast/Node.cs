@@ -21,7 +21,7 @@ namespace GossipMemberlistMulticast
             this.nodeInformationDictionary = nodeInformationDictionary;
         }
 
-        public string Id => selfNodeInformation.Id;
+        public string EndPoint => selfNodeInformation.EndPoint;
 
         public IReadOnlyCollection<NodeInformation> KnownNodeInformation
         {

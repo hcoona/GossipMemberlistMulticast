@@ -36,7 +36,7 @@ namespace GossipMemberlistMulticast
                 selfNodeInformation,
                 new Dictionary<string, NodeInformation>(StringComparer.InvariantCultureIgnoreCase)
                 {
-                    { selfNodeInformation.Id, selfNodeInformation }
+                    { selfNodeInformation.EndPoint, selfNodeInformation }
                 });
 
             while (!cancellationToken.IsCancellationRequested)
@@ -49,7 +49,7 @@ namespace GossipMemberlistMulticast
 
                         var synResponse = await client.Ping1Async(new RequestMessage
                         {
-                            NodeId = selfNodeInformation.Id,
+                            NodeId = selfNodeInformation.EndPoint,
                             Ping1Request = new Ping1Request
                             {
                                 NodePropertyVersions = selfNodeInformation.GetNodePropertyVersions()
@@ -60,7 +60,7 @@ namespace GossipMemberlistMulticast
 
                         await client.Ping2Async(new RequestMessage
                         {
-                            NodeId = selfNodeInformation.Id,
+                            NodeId = selfNodeInformation.EndPoint,
                             Ping2Request = ack2Request
                         });
 
@@ -86,7 +86,7 @@ namespace GossipMemberlistMulticast
                 selfNodeInformation,
                 new Dictionary<string, NodeInformation>(StringComparer.InvariantCultureIgnoreCase)
                 {
-                    { selfNodeInformation.Id, selfNodeInformation }
+                    { selfNodeInformation.EndPoint, selfNodeInformation }
                 });
         }
     }

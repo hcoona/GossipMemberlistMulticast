@@ -8,22 +8,21 @@ namespace GossipMemberlistMulticast
     public class NodeInformation
     {
         private static readonly string NodeStateKey = "node_state";
-        private static readonly string NodeEndPointKey = "node_endpoint";
 
         private readonly ILogger<NodeInformation> logger;
 
         public NodeInformation(
             ILogger<NodeInformation> logger,
-            string id,
+            string endpoint,
             NodeState nodeState)
         {
             this.logger = logger;
-            this.Id = id;
+            this.EndPoint = endpoint;
 
             Properties.NodeProperties_[NodeStateKey].StateProperty = nodeState;
         }
 
-        public string Id { get; }
+        public string EndPoint { get; }
 
         public NodeProperties Properties { get; } = new NodeProperties();
 
@@ -33,7 +32,6 @@ namespace GossipMemberlistMulticast
             set
             {
                 Properties.NodeProperties_[NodeStateKey].Version.Version_ = value;
-                Properties.NodeProperties_[NodeEndPointKey].Version.Version_ = value;
             }
         }
 
@@ -60,15 +58,6 @@ namespace GossipMemberlistMulticast
         }
 
         public event EventHandler<NodeStateChangedEventArgs> OnStateChanged;
-
-        public IPEndPoint EndPoint
-        {
-            get
-            {
-                var g = Properties.NodeProperties_[NodeEndPointKey].StringProperty.Split(new[] { ':' }, 2);
-                return new IPEndPoint(IPAddress.Parse(g[0]), int.Parse(g[1]));
-            }
-        }
 
         public NodePropertyVersions GetNodePropertyVersions()
         {

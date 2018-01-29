@@ -25,7 +25,7 @@ namespace GossipMemberlistMulticast
         {
             return Task.FromResult(new ResponseMessage
             {
-                NodeId = node.Id,
+                NodeEndpoint = node.EndPoint,
                 Ping1Response = node.Syn(request.Ping1Request)
             });
         }
@@ -34,7 +34,7 @@ namespace GossipMemberlistMulticast
         {
             return Task.FromResult(new ResponseMessage
             {
-                NodeId = node.Id,
+                NodeEndpoint = node.EndPoint,
                 Ping2Response = node.Ack2(request.Ping2Request)
             });
         }

@@ -9,18 +9,18 @@ namespace GossipMemberlistMulticast
     public class Cluster
     {
         private readonly ILogger<Cluster> logger;
-        private readonly string selfNodeId;
+        private readonly string selfNodeEndPoint;
         private readonly ClusterBootstrapper clusterBootstrapper;
         private readonly Func<string, Gossiper.GossiperClient> clientFactory;
 
         public Cluster(
             ILogger<Cluster> logger,
-            string selfNodeId,
+            string selfNodeEndPoint,
             ClusterBootstrapper clusterBootstrapper,
             Func<string, Gossiper.GossiperClient> clientFactory)
         {
             this.logger = logger;
-            this.selfNodeId = selfNodeId;
+            this.selfNodeEndPoint = selfNodeEndPoint;
             this.clusterBootstrapper = clusterBootstrapper;
             this.clientFactory = clientFactory;
         }
@@ -35,6 +35,8 @@ namespace GossipMemberlistMulticast
 
             backgroundLoopCancellationTokenSource = new CancellationTokenSource();
             backgroundLoopTask = StartBackgroundLoopAsync(backgroundLoopCancellationTokenSource.Token);
+
+            // TODO: remove dead nodes
         }
 
         public Task StopAsync(CancellationToken cancellationToken = default)
@@ -59,15 +61,17 @@ namespace GossipMemberlistMulticast
             var random = new Random();
             while (!cancellationToken.IsCancellationRequested)
             {
+                // Probably choose non-live nodes.
                 var liveNodes = node.KnownNodeInformation
                     .Where(n => n.State == NodeState.Live)
-                    .Where(n => n.Id != selfNodeId)
+                    .Where(n => n.EndPoint != selfNodeEndPoint)
                     .ToArray();
 
                 if (liveNodes.Any())
                 {
                     var peer = liveNodes.ChooseRandom(random);
                     var client = clientFactory(peer.EndPoint.ToString());
+                    // TODO: Ping etc.
                 }
                 else
                 {
