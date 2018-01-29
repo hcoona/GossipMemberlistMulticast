@@ -1,99 +1,108 @@
-using System;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 
 namespace GossipMemberlistMulticast
 {
-    public class NodeInformation
+    public partial class NodeInformation
     {
         private static readonly string NodeStateKey = "node_state";
 
-        private readonly ILogger<NodeInformation> logger;
-
-        public NodeInformation(
-            ILogger<NodeInformation> logger,
-            string endpoint,
-            NodeState nodeState)
+        public VersionedProperty NodeStateProperty
         {
-            this.logger = logger;
-            this.EndPoint = endpoint;
-
-            Properties.NodeProperties_[NodeStateKey].StateProperty = nodeState;
+            get { return this.Properties[NodeStateKey]; }
+            set { this.Properties[NodeStateKey] = value; }
         }
 
-        public string EndPoint { get; }
+        public long LastKnownPropertyVersion => this.Properties.Max(p => p.Value.Version);
 
-        public NodeProperties Properties { get; } = new NodeProperties();
-
-        public long Version
+        public void BumpVersion()
         {
-            get { return Properties.NodeProperties_.Max(p => p.Value.Version.Version_); }
-            set
-            {
-                Properties.NodeProperties_[NodeStateKey].Version.Version_ = value;
-            }
+            this.NodeStateProperty.Version = LastKnownPropertyVersion + 1;
         }
 
-        public NodeState State
+        public NodeInformationSynopsis GetSynopsis() => new NodeInformationSynopsis
         {
-            get
+            Endpoint = this.Endpoint,
+            NodeVersion = this.NodeVersion,
+            LastKnownPropertyVersion = this.LastKnownPropertyVersion
+        };
+
+        public void Update(NodeInformation other, ILogger logger)
+        {
+            using (logger.BeginScope("EndPoint={0}", this.Endpoint))
             {
-                return Properties.NodeProperties_[NodeStateKey].StateProperty;
-            }
-            set
-            {
-                var state = Properties.NodeProperties_[NodeStateKey].StateProperty;
-                if (state != value)
+                if (this.NodeVersion <= other.NodeVersion)
                 {
-                    Properties.NodeProperties_[NodeStateKey].StateProperty = value;
-                    Properties.NodeProperties_[NodeStateKey].Version.Version_ = ++this.Version;
-                    OnStateChanged?.Invoke(this, new NodeStateChangedEventArgs
+                    this.NodeVersion = other.NodeVersion;
+                    foreach (var p in other.Properties)
                     {
-                        PreviousNodeState = state,
-                        CurrentNodeState = value
-                    });
-                }
-            }
-        }
-
-        public event EventHandler<NodeStateChangedEventArgs> OnStateChanged;
-
-        public NodeProperties GetPropertiesAfterVersion(long version)
-        {
-            var deltaNodeProperties = new NodeProperties();
-            foreach (var p in Properties.NodeProperties_.Where(p => p.Value.Version.Version_ > version))
-            {
-                deltaNodeProperties.NodeProperties_.Add(p.Key, p.Value);
-            }
-            return deltaNodeProperties;
-        }
-
-        public NodeProperties UpdateProperties(NodeProperties nodeProperties)
-        {
-            var deltaNodeProperties = new NodeProperties();
-            foreach (var p in nodeProperties.NodeProperties_)
-            {
-                var myProperty = Properties.NodeProperties_[p.Key];
-                var theirProperty = p.Value;
-
-                if (myProperty.Version.Version_ < theirProperty.Version.Version_)
-                {
-                    myProperty = theirProperty;
-                    if (p.Key == NodeStateKey && myProperty.StateProperty != theirProperty.StateProperty)
-                    {
-                        OnStateChanged?.Invoke(this, new NodeStateChangedEventArgs
+                        if (this.Properties.ContainsKey(p.Key))
                         {
-                            PreviousNodeState = myProperty.StateProperty,
-                            CurrentNodeState = theirProperty.StateProperty
-                        });
+                            if (this.Properties[p.Key].Version < p.Value.Version)
+                            {
+                                this.Properties[p.Key] = p.Value;
+                                logger.LogDebug("Property {0} updated to value {1}", p.Key, p.Value);
+                            }
+                            else if (this.Properties[p.Key].Version > p.Value.Version)
+                            {
+                                logger.LogInformation(
+                                    "Discard incoming node property {0} because our version is higher ({1} > {2})",
+                                    p.Key,
+                                    this.Properties[p.Key].Version,
+                                    p.Value.Version);
+                            }
+                            else
+                            {
+                                logger.LogInformation(
+                                    "Discard incoming node property {0} because the version is same ({1})",
+                                    p.Key,
+                                    p.Value.Version);
+                            }
+                        }
+                        else
+                        {
+                            this.Properties.Add(p.Key, p.Value);
+                            logger.LogDebug("Property {0} added to value {1}", p.Key, p.Value);
+                        }
                     }
                 }
-                else if (myProperty.Version.Version_ > theirProperty.Version.Version_)
+                else
                 {
-                    deltaNodeProperties.NodeProperties_.Add(p.Key, myProperty);
+                    logger.LogInformation(
+                        "Discard incoming node information because our node version is higher ({0} > {1})",
+                        this.NodeVersion,
+                        other.NodeVersion);
                 }
             }
-            return deltaNodeProperties;
+        }
+
+        public NodeInformation GetDelta(NodeInformationSynopsis otherSynopsis, ILogger logger)
+        {
+            var result = new NodeInformation
+            {
+                Endpoint = this.Endpoint,
+                NodeVersion = this.NodeVersion
+            };
+
+            if (this.NodeVersion < otherSynopsis.NodeVersion)
+            {
+                // Should not get here.
+            }
+            else if (this.NodeVersion > otherSynopsis.NodeVersion)
+            {
+                result.Properties.Add(this.Properties);
+            }
+            else
+            {
+                foreach (var p in this.Properties)
+                {
+                    if (p.Value.Version > otherSynopsis.LastKnownPropertyVersion)
+                    {
+                        result.Properties.Add(p.Key, p.Value);
+                    }
+                }
+            }
+            return result;
         }
     }
 }

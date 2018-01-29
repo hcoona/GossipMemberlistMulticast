@@ -21,22 +21,14 @@ namespace GossipMemberlistMulticast
             this.node = node;
         }
 
-        public override Task<ResponseMessage> Ping1(RequestMessage request, ServerCallContext context)
+        public override Task<Ping1Response> Ping1(Ping1Request request, ServerCallContext context)
         {
-            return Task.FromResult(new ResponseMessage
-            {
-                NodeEndpoint = node.EndPoint,
-                Ping1Response = node.Syn(request.Ping1Request)
-            });
+            return Task.FromResult(node.Syn(request));
         }
 
-        public override Task<ResponseMessage> Ping2(RequestMessage request, ServerCallContext context)
+        public override Task<Ping2Response> Ping2(Ping2Request request, ServerCallContext context)
         {
-            return Task.FromResult(new ResponseMessage
-            {
-                NodeEndpoint = node.EndPoint,
-                Ping2Response = node.Ack2(request.Ping2Request)
-            });
+            return Task.FromResult(node.Ack2(request));
         }
 
         public override async Task<ForwardResponse> Forward(ForwardRequest request, ServerCallContext context)
@@ -44,21 +36,24 @@ namespace GossipMemberlistMulticast
             logger.LogDebug("Forward to {0} with method {1}", request.TargetEndpoint, request.TargetMethod);
             var client = clientFactory(request.TargetEndpoint);
 
-            AsyncUnaryCall<ResponseMessage> forwardTask;
             switch (request.TargetMethod)
             {
                 case "Ping1":
-                    forwardTask = client.Ping1Async(
-                        request.RequestMessage,
-                        deadline: context.Deadline,
-                        cancellationToken: context.CancellationToken);
-                    break;
+                    return new ForwardResponse
+                    {
+                        Ping1Response = await client.Ping1Async(
+                            request.Ping1Request,
+                            deadline: context?.Deadline ?? DateTime.UtcNow + TimeSpan.FromMilliseconds(200),
+                            cancellationToken: context?.CancellationToken ?? default)
+                    };
                 case "Ping2":
-                    forwardTask = client.Ping2Async(
-                        request.RequestMessage,
-                        deadline: context.Deadline,
-                        cancellationToken: context.CancellationToken);
-                    break;
+                    return new ForwardResponse
+                    {
+                        Ping2Response = await client.Ping2Async(
+                            request.Ping2Request,
+                            deadline: context?.Deadline ?? DateTime.UtcNow + TimeSpan.FromMilliseconds(200),
+                            cancellationToken: context?.CancellationToken ?? default)
+                    };
                 default:
                     logger.LogError("Unrecongnized forwarding method {0}", request.TargetMethod);
                     return new ForwardResponse
@@ -66,11 +61,6 @@ namespace GossipMemberlistMulticast
                         ErrorMessage = string.Format("Unrecongnized forwarding method {0}", request.TargetMethod)
                     };
             }
-
-            return new ForwardResponse
-            {
-                ResponseMessage = await forwardTask
-            };
         }
     }
 }

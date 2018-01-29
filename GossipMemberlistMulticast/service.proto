@@ -11,12 +11,8 @@ enum NodeState {
   Dead = 3;
 }
 
-message Version {
-  int64 version = 1;
-}
-
 message VersionedProperty {
-  Version version = 1;
+  int64 version = 1;
   oneof property {
     string string_property = 2;
     NodeState state_property = 3;
@@ -24,68 +20,54 @@ message VersionedProperty {
   }
 }
 
-message NodePropertyVersions {
-  // NodeEndPoint -> NodeVersion
-  map<string, Version> node_property_versions = 1;
+message NodeInformation {
+  string endpoint = 1;
+  int64 node_version = 2;
+  map<string, VersionedProperty> properties = 3;
 }
 
-message NodeProperties {
-  // PropertyKey -> VersionedProperty
-  map<string, VersionedProperty> node_properties = 1;
+message NodeInformationSynopsis {
+  string endpoint = 1;
+  int64 node_version = 2;
+  int64 last_known_property_version = 3;
 }
 
 message Ping1Request {
-  NodePropertyVersions node_property_versions = 1;
+  repeated NodeInformationSynopsis nodes_synopsis = 1;
 }
 
 message Ping1Response {
-  NodePropertyVersions required_node_property_versions = 1;
-  // NodeEndPoint -> NodeProperties
-  map<string, NodeProperties> updated_node_properties = 2;
+  repeated NodeInformationSynopsis required_nodes_synopsis = 1;
+  repeated NodeInformation updated_nodes = 2;
 }
 
 message Ping2Request {
-  // NodeEndPoint -> NodeProperties
-  map<string, NodeProperties> updated_node_properties = 1;
+  repeated NodeInformation updated_nodes = 1;
 }
 
 message Ping2Response {
-}
-
-message RequestMessage {
-  string node_endpoint = 1;
-  oneof request {
-    Ping1Request ping1_request = 2;
-    Ping2Request ping2_request = 3;
-  }
-}
-
-message ResponseMessage {
-  string node_endpoint = 1;
-  oneof response {
-    Ping1Response ping1_response = 2;
-    Ping2Response ping2_response = 3;
-  }
 }
 
 message ForwardRequest {
   string target_endpoint = 1;
   string target_method = 2;
   oneof payload {
-    RequestMessage requestMessage = 3;
+    Ping1Request ping1_request = 3;
+    Ping2Request ping2_request = 4;
   }
 }
 
 message ForwardResponse {
   oneof response {
-    ResponseMessage responseMessage = 1;
-    string errorMessage = 2;
+    string errorMessage = 1;
+    Ping1Response ping1_response = 2;
+    Ping2Response ping2_response = 3;
   }
 }
 
 service Gossiper {
-  rpc Ping1 (RequestMessage) returns (ResponseMessage) {}
-  rpc Ping2 (RequestMessage) returns (ResponseMessage) {}
+  rpc Ping1 (Ping1Request) returns (Ping1Response) {}
+  rpc Ping2 (Ping2Request) returns (Ping2Response) {}
 
   rpc Forward (ForwardRequest) returns (ForwardResponse) {}
 }

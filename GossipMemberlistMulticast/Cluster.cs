@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -36,24 +37,35 @@ namespace GossipMemberlistMulticast
 
         public Task StartAsync(CancellationToken cancellationToken = default)
         {
-            var selfNodeInformation = new NodeInformation(
-                serviceProvider.GetRequiredService<ILogger<NodeInformation>>(),
-                selfNodeEndPoint,
-                NodeState.Live);
+            var selfNodeInformation = new NodeInformation
+            {
+                Endpoint = selfNodeEndPoint,
+                NodeVersion = Process.GetCurrentProcess().StartTime.ToFileTimeUtc(),
+                NodeStateProperty = new VersionedProperty
+                {
+                    Version = 1,
+                    StateProperty = NodeState.Live
+                }
+            };
             var seedsNodeInformation = seedsProvider()
-                .Select(endpoint => new NodeInformation(
-                    serviceProvider.GetRequiredService<ILogger<NodeInformation>>(),
-                    endpoint,
-                    NodeState.Unknown))
-                .ToArray();
+                .Select(endpoint => new NodeInformation
+                {
+                    Endpoint = endpoint,
+                    NodeVersion = 0,
+                    NodeStateProperty = new VersionedProperty
+                    {
+                        Version = 0,
+                        StateProperty = NodeState.Unknown
+                    }
+                }).ToArray();
 
             var nodeInformationDictionary = new Dictionary<string, NodeInformation>(StringComparer.InvariantCultureIgnoreCase)
             {
-                { selfNodeInformation.EndPoint, selfNodeInformation }
+                { selfNodeInformation.Endpoint, selfNodeInformation }
             };
             foreach (var n in seedsNodeInformation)
             {
-                nodeInformationDictionary.Add(n.EndPoint, n);
+                nodeInformationDictionary.Add(n.Endpoint, n);
             }
 
             node = new Node(
@@ -101,9 +113,9 @@ namespace GossipMemberlistMulticast
                     }
                     catch (Exception ex)
                     {
-                        logger.LogError(default, ex, "Failed to connect to peer {0} because {1}", peer.EndPoint, ex);
+                        logger.LogError(default, ex, "Failed to connect to peer {0} because {1}", peer.Endpoint, ex);
                         // TODO: Mark suspect & start probing
-                        peer.State = NodeState.Dead;
+                        peer.NodeStateProperty.StateProperty = NodeState.Dead;
                     }
                 }
 
@@ -114,11 +126,11 @@ namespace GossipMemberlistMulticast
         private NodeInformation PickRandomNode(Random random)
         {
             var liveNodes = node.KnownNodeInformation
-                                .Where(n => n.State == NodeState.Live)
-                                .Where(n => n.EndPoint != selfNodeEndPoint)
+                                .Where(n => n.NodeStateProperty.StateProperty == NodeState.Live)
+                                .Where(n => n.Endpoint != selfNodeEndPoint)
                                 .ToArray();
             var nonLiveNodes = node.KnownNodeInformation
-                .Where(n => n.State != NodeState.Live)
+                .Where(n => n.NodeStateProperty.StateProperty != NodeState.Live)
                 .ToArray();
 
             if (liveNodes.Any() && nonLiveNodes.Any())
@@ -153,32 +165,22 @@ namespace GossipMemberlistMulticast
 
         private async Task SyncWithPeerAsync(NodeInformation peer, Random random, CancellationToken cancellationToken)
         {
-            var client = clientFactory.Invoke(peer.EndPoint.ToString());
-            var synRequest = new RequestMessage
-            {
-                NodeEndpoint = selfNodeEndPoint,
-                Ping1Request = new Ping1Request
-                {
-                    NodePropertyVersions = node.GetNodePropertyVersions()
-                }
-            };
+            var client = clientFactory.Invoke(peer.Endpoint);
+
+            var synRequest = new Ping1Request();
+            synRequest.NodesSynopsis.AddRange(node.GetNodesSynposis());
 
             bool failed = false;
             try
             {
                 var synResponse = await client.Ping1Async(synRequest, cancellationToken: cancellationToken);
-                var ack2Request = node.Ack1(synResponse.Ping1Response);
+                var ack2Request = node.Ack1(synResponse);
 
-                var ack2Response = await client.Ping2Async(
-                    new RequestMessage
-                    {
-                        NodeEndpoint = selfNodeEndPoint,
-                        Ping2Request = ack2Request
-                    }, cancellationToken: cancellationToken);
+                var ack2Response = await client.Ping2Async(ack2Request, cancellationToken: cancellationToken);
             }
             catch (Exception ex)
             {
-                logger.LogError(default, ex, "Cannot ping peer {0} because {1}", peer.EndPoint, ex);
+                logger.LogError(default, ex, "Cannot ping peer {0} because {1}", peer.Endpoint, ex);
                 failed = true;
             }
 
@@ -186,17 +188,17 @@ namespace GossipMemberlistMulticast
             {
                 // TODO: pick k nodes & forward ping concurrently, currently only implement k = 1
                 var forwarder = PickRandomNode(random);
-                logger.LogInformation("Pick peer {0} as forwarder to connect peer {1}", forwarder.EndPoint, peer.EndPoint);
-                client = clientFactory.Invoke(forwarder.EndPoint);
+                logger.LogInformation("Pick peer {0} as forwarder to connect peer {1}", forwarder.Endpoint, peer.Endpoint);
+                client = clientFactory.Invoke(forwarder.Endpoint);
 
                 var forwardedSynResponse = await client.ForwardAsync(
                     new ForwardRequest
                     {
-                        TargetEndpoint = peer.EndPoint,
+                        TargetEndpoint = peer.Endpoint,
                         TargetMethod = nameof(client.Ping1),
-                        RequestMessage = synRequest
+                        Ping1Request = synRequest
                     }, cancellationToken: cancellationToken);
-                ResponseMessage synResponse = null;
+                Ping1Response synResponse;
                 switch (forwardedSynResponse.ResponseCase)
                 {
                     case ForwardResponse.ResponseOneofCase.ErrorMessage:
@@ -205,24 +207,23 @@ namespace GossipMemberlistMulticast
                     case ForwardResponse.ResponseOneofCase.None:
                         // TODO: Exception type
                         throw new Exception("Forward response not set content from remote");
-                    case ForwardResponse.ResponseOneofCase.ResponseMessage:
-                        synResponse = forwardedSynResponse.ResponseMessage;
+                    case ForwardResponse.ResponseOneofCase.Ping1Response:
+                        synResponse = forwardedSynResponse.Ping1Response;
                         break;
+                    default:
+                        // TODO: Exception type
+                        throw new Exception("Unknown response type");
                 }
-                var ack2Request = node.Ack1(synResponse.Ping1Response);
 
+                var ack2Request = node.Ack1(synResponse);
                 var forwardedAck2Response = await client.ForwardAsync(
                     new ForwardRequest
                     {
-                        TargetEndpoint = peer.EndPoint,
+                        TargetEndpoint = peer.Endpoint,
                         TargetMethod = nameof(client.Ping2),
-                        RequestMessage = new RequestMessage
-                        {
-                            NodeEndpoint = selfNodeEndPoint,
-                            Ping2Request = ack2Request
-                        }
+                        Ping2Request = ack2Request
                     }, cancellationToken: cancellationToken);
-                ResponseMessage ack2Response = null;
+                Ping2Response ack2Response;
                 switch (forwardedAck2Response.ResponseCase)
                 {
                     case ForwardResponse.ResponseOneofCase.ErrorMessage:
@@ -231,9 +232,12 @@ namespace GossipMemberlistMulticast
                     case ForwardResponse.ResponseOneofCase.None:
                         // TODO: Exception type
                         throw new Exception("Forward response not set content from remote");
-                    case ForwardResponse.ResponseOneofCase.ResponseMessage:
-                        ack2Response = forwardedAck2Response.ResponseMessage;
+                    case ForwardResponse.ResponseOneofCase.Ping2Response:
+                        ack2Response = forwardedAck2Response.Ping2Response;
                         break;
+                    default:
+                        // TODO: Exception type
+                        throw new Exception("Unknown response type");
                 }
             }
         }

@@ -21,7 +21,7 @@ namespace GossipMemberlistMulticast
             this.nodeInformationDictionary = nodeInformationDictionary;
         }
 
-        public string EndPoint => selfNodeInformation.EndPoint;
+        public string EndPoint => selfNodeInformation.Endpoint;
 
         public IReadOnlyCollection<NodeInformation> KnownNodeInformation
         {
@@ -34,16 +34,11 @@ namespace GossipMemberlistMulticast
             }
         }
 
-        public NodePropertyVersions GetNodePropertyVersions()
+        public IList<NodeInformationSynopsis> GetNodesSynposis()
         {
             lock (lockObject)
             {
-                var result = new NodePropertyVersions();
-                foreach (var p in nodeInformationDictionary)
-                {
-                    result.NodePropertyVersions_.Add(p.Key, new Version { Version_ = p.Value.Version });
-                }
-                return result;
+                return nodeInformationDictionary.Values.Select(n => n.GetSynopsis()).ToArray();
             }
         }
 
@@ -52,28 +47,10 @@ namespace GossipMemberlistMulticast
             lock (lockObject)
             {
                 var response = new Ping1Response();
-
-                foreach (var p in syn.NodePropertyVersions.NodePropertyVersions_)
-                {
-                    var nodeId = p.Key;
-                    var incomingNodeVersion = p.Value.Version_;
-
-                    var n = nodeInformationDictionary[nodeId];
-                    if (n.Version < incomingNodeVersion)
-                    {
-                        response.RequiredNodePropertyVersions.NodePropertyVersions_.Add(
-                            nodeId,
-                            new Version { Version_ = n.Version });
-                    }
-                    else
-                    {
-                        var updatedProperties = n.GetPropertiesAfterVersion(incomingNodeVersion);
-                        if (updatedProperties.NodeProperties_.Any())
-                        {
-                            response.UpdatedNodeProperties.Add(nodeId, updatedProperties);
-                        }
-                    }
-                }
+                FillRequiredOrUpdatedNodes(
+                    syn.NodesSynopsis,
+                    response.RequiredNodesSynopsis,
+                    response.UpdatedNodes);
 
                 return response;
             }
@@ -85,31 +62,15 @@ namespace GossipMemberlistMulticast
             {
                 var response = new Ping2Request();
 
-                foreach (var p in ack1.UpdatedNodeProperties)
-                {
-                    var nodeId = p.Key;
+                MergeUpdateNodes(ack1.UpdatedNodes);
 
-                    var n = nodeInformationDictionary[nodeId];
-                    var delta = n.UpdateProperties(p.Value);
-                    if (delta.NodeProperties_.Any())
-                    {
-                        response.UpdatedNodeProperties.Add(nodeId, delta);
-                    }
-                }
+                selfNodeInformation.BumpVersion();
 
-                selfNodeInformation.Version++;
-
-                foreach (var p in ack1.RequiredNodePropertyVersions.NodePropertyVersions_)
-                {
-                    var nodeId = p.Key;
-
-                    var n = nodeInformationDictionary[nodeId];
-                    var updatedProperties = n.GetPropertiesAfterVersion(p.Value.Version_);
-                    if (updatedProperties.NodeProperties_.Any())
-                    {
-                        response.UpdatedNodeProperties.Add(nodeId, updatedProperties);
-                    }
-                }
+                var ignored = new List<NodeInformationSynopsis>();
+                FillRequiredOrUpdatedNodes(
+                    ack1.RequiredNodesSynopsis,
+                    ignored,
+                    response.UpdatedNodes);
 
                 return response;
             }
@@ -121,17 +82,115 @@ namespace GossipMemberlistMulticast
             {
                 var response = new Ping2Response();
 
-                foreach (var p in ack2.UpdatedNodeProperties)
-                {
-                    var nodeId = p.Key;
-
-                    var n = nodeInformationDictionary[nodeId];
-                    n.UpdateProperties(p.Value);
-                }
-
-                selfNodeInformation.Version++;
+                MergeUpdateNodes(ack2.UpdatedNodes);
+                selfNodeInformation.BumpVersion();
 
                 return response;
+            }
+        }
+
+        private void FillRequiredOrUpdatedNodes(
+            IEnumerable<NodeInformationSynopsis> nodesSynopsis,
+            IList<NodeInformationSynopsis> requiredNodesSynopsis,
+            IList<NodeInformation> updatedNodesSynopsis)
+        {
+            foreach (var n in nodesSynopsis)
+            {
+                if (nodeInformationDictionary.ContainsKey(n.Endpoint))
+                {
+                    var myNode = nodeInformationDictionary[n.Endpoint];
+                    if (myNode.NodeVersion < n.NodeVersion)
+                    {
+                        requiredNodesSynopsis.Add(new NodeInformationSynopsis
+                        {
+                            Endpoint = n.Endpoint,
+                            NodeVersion = myNode.NodeVersion,
+                            LastKnownPropertyVersion = 0
+                        });
+                    }
+                    else if (myNode.NodeVersion > n.NodeVersion)
+                    {
+                        updatedNodesSynopsis.Add(myNode);
+                    }
+                    else
+                    {
+                        if (myNode.LastKnownPropertyVersion < n.LastKnownPropertyVersion)
+                        {
+                            requiredNodesSynopsis.Add(myNode.GetSynopsis());
+                        }
+                        else if (myNode.LastKnownPropertyVersion > n.LastKnownPropertyVersion)
+                        {
+                            updatedNodesSynopsis.Add(myNode.GetDelta(n, logger));
+                        }
+                        else
+                        {
+                            logger.LogDebug("Node {0} has exactly same version to incoming synopsis.", n.Endpoint);
+                        }
+                    }
+                }
+                else
+                {
+                    requiredNodesSynopsis.Add(new NodeInformationSynopsis
+                    {
+                        Endpoint = n.Endpoint,
+                        NodeVersion = 0,
+                        LastKnownPropertyVersion = 0
+                    });
+                }
+            }
+
+            var peerUnknownNodes = nodeInformationDictionary.Keys
+                .Except(nodesSynopsis.Select(n => n.Endpoint))
+                .Select(key => nodeInformationDictionary[key]);
+            foreach (var n in peerUnknownNodes)
+            {
+                updatedNodesSynopsis.Add(n);
+            }
+        }
+
+        private void MergeUpdateNodes(IEnumerable<NodeInformation> updateNodes)
+        {
+            foreach (var n in updateNodes)
+            {
+                if (nodeInformationDictionary.ContainsKey(n.Endpoint))
+                {
+                    var myNode = nodeInformationDictionary[n.Endpoint];
+                    if (myNode.NodeVersion < n.NodeVersion)
+                    {
+                        nodeInformationDictionary[n.Endpoint] = n;
+                    }
+                    else if (myNode.NodeVersion > n.NodeVersion)
+                    {
+                        // Ignored
+                        // TODO: log it
+                    }
+                    else
+                    {
+                        foreach (var p in n.Properties)
+                        {
+                            if (myNode.Properties.ContainsKey(p.Key))
+                            {
+                                if (myNode.Properties[p.Key].Version < p.Value.Version)
+                                {
+                                    myNode.Properties[p.Key] = p.Value;
+                                }
+                                else
+                                {
+                                    // Ignored
+                                    // TODO: log it
+                                }
+                            }
+                            else
+                            {
+                                myNode.Properties.Add(p.Key, p.Value);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    nodeInformationDictionary.Add(n.Endpoint, n);
+                }
             }
         }
     }
