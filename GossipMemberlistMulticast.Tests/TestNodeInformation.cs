@@ -43,7 +43,7 @@ namespace GossipMemberlistMulticast.Tests
 
             var n = CreateNodeInformation(endpoint, nodeState);
             Assert.Equal(endpoint, n.Endpoint);
-            Assert.Equal(nodeState, n.NodeStateProperty.StateProperty);
+            Assert.Equal(nodeState, n.NodeState);
             Assert.Equal(Process.GetCurrentProcess().StartTime.ToFileTimeUtc(), n.NodeVersion);
             Assert.Equal(1, n.LastKnownPropertyVersion);
             Assert.Single(n.Properties);

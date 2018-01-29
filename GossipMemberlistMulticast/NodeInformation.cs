@@ -13,6 +13,12 @@ namespace GossipMemberlistMulticast
             set { this.Properties[NodeStateKey] = value; }
         }
 
+        public NodeState NodeState
+        {
+            get { return this.NodeStateProperty.StateProperty; }
+            set { this.NodeStateProperty.StateProperty = value; }
+        }
+
         public long LastKnownPropertyVersion => this.Properties.Max(p => p.Value.Version);
 
         public void BumpVersion()
