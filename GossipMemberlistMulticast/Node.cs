@@ -93,6 +93,7 @@ namespace GossipMemberlistMulticast
                 var originState = p.StateProperty;
                 p.StateProperty = nodeState;
                 p.Version = n.LastKnownPropertyVersion + 1;
+
                 if (p.StateProperty != originState)
                 {
                     NodeStateChanged?.Invoke(this, new NodeStateChangedEventArgs
@@ -135,7 +136,7 @@ namespace GossipMemberlistMulticast
 
                 MergeUpdateNodes(ack1.UpdatedNodes);
 
-                selfNodeInformation.BumpVersion();
+                AssignNodeState(selfNodeInformation.Endpoint, NodeState.Live);
 
                 var ignored = new List<NodeInformationSynopsis>();
                 FillRequiredOrUpdatedNodes(
@@ -154,7 +155,7 @@ namespace GossipMemberlistMulticast
                 var response = new Ping2Response();
 
                 MergeUpdateNodes(ack2.UpdatedNodes);
-                selfNodeInformation.BumpVersion();
+                AssignNodeState(selfNodeInformation.Endpoint, NodeState.Live);
 
                 return response;
             }
