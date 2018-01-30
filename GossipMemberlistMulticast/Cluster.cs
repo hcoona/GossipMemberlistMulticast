@@ -85,19 +85,19 @@ namespace GossipMemberlistMulticast
             var random = new Random();
             while (!cancellationToken.IsCancellationRequested)
             {
-                NodeInformation peer = PickRandomNode(random);
+                var peerEndpoint = PickRandomNode(random);
 
-                if (peer != null)
+                if (peerEndpoint != null)
                 {
                     try
                     {
-                        await SyncWithPeerAsync(peer, random, cancellationToken);
+                        await SyncWithPeerAsync(peerEndpoint, random, cancellationToken);
                     }
                     catch (Exception ex)
                     {
-                        logger.LogError(default, ex, "Failed to connect to peer {0} because {1}", peer.Endpoint, ex);
+                        logger.LogError(default, ex, "Failed to connect to peer {0} because {1}", peerEndpoint, ex);
                         // TODO: Mark suspect & start probing
-                        node.AssignNodeState(peer.Endpoint, NodeState.Dead);
+                        node.AssignNodeState(peerEndpoint, NodeState.Dead);
                     }
                 }
 
@@ -105,15 +105,10 @@ namespace GossipMemberlistMulticast
             }
         }
 
-        private NodeInformation PickRandomNode(Random random)
+        private string PickRandomNode(Random random)
         {
-            var liveNodes = node.KnownNodeInformation
-                .Where(n => n.NodeState == NodeState.Live)
-                .Where(n => n.Endpoint != selfNodeEndPoint)
-                .ToArray();
-            var nonLiveNodes = node.KnownNodeInformation
-                .Where(n => n.NodeState != NodeState.Live)
-                .ToArray();
+            var liveNodes = node.LiveEndpoints;
+            var nonLiveNodes = node.NonLiveEndpoints;
 
             if (liveNodes.Any() && nonLiveNodes.Any())
             {
@@ -145,9 +140,9 @@ namespace GossipMemberlistMulticast
             }
         }
 
-        private async Task SyncWithPeerAsync(NodeInformation peer, Random random, CancellationToken cancellationToken)
+        private async Task SyncWithPeerAsync(string peerEndpoint, Random random, CancellationToken cancellationToken)
         {
-            var client = clientFactory.Invoke(peer.Endpoint);
+            var client = clientFactory.Invoke(peerEndpoint);
 
             var synRequest = new Ping1Request();
             synRequest.NodesSynopsis.AddRange(node.GetNodesSynposis());
@@ -162,21 +157,21 @@ namespace GossipMemberlistMulticast
             }
             catch (Exception ex)
             {
-                logger.LogError(default, ex, "Cannot ping peer {0} because {1}", peer.Endpoint, ex);
+                logger.LogError(default, ex, "Cannot ping peer {0} because {1}", peerEndpoint, ex);
                 failed = true;
             }
 
             if (failed)
             {
                 // TODO: pick k nodes & forward ping concurrently, currently only implement k = 1
-                var forwarder = PickRandomNode(random);
-                logger.LogInformation("Pick peer {0} as forwarder to connect peer {1}", forwarder.Endpoint, peer.Endpoint);
-                client = clientFactory.Invoke(forwarder.Endpoint);
+                var forwarderEndpoint = PickRandomNode(random);
+                logger.LogInformation("Pick peer {0} as forwarder to connect peer {1}", forwarderEndpoint, peerEndpoint);
+                client = clientFactory.Invoke(forwarderEndpoint);
 
                 var forwardedSynResponse = await client.ForwardAsync(
                     new ForwardRequest
                     {
-                        TargetEndpoint = peer.Endpoint,
+                        TargetEndpoint = peerEndpoint,
                         TargetMethod = nameof(client.Ping1),
                         Ping1Request = synRequest
                     }, cancellationToken: cancellationToken);
@@ -201,7 +196,7 @@ namespace GossipMemberlistMulticast
                 var forwardedAck2Response = await client.ForwardAsync(
                     new ForwardRequest
                     {
-                        TargetEndpoint = peer.Endpoint,
+                        TargetEndpoint = peerEndpoint,
                         TargetMethod = nameof(client.Ping2),
                         Ping2Request = ack2Request
                     }, cancellationToken: cancellationToken);

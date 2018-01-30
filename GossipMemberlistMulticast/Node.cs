@@ -23,13 +23,33 @@ namespace GossipMemberlistMulticast
 
         public string EndPoint => selfNodeInformation.Endpoint;
 
-        public IReadOnlyCollection<NodeInformation> KnownNodeInformation
+        public IReadOnlyList<string> LiveEndpoints
         {
             get
             {
                 lock (lockObject)
                 {
-                    return nodeInformationDictionary.Values.ToList().AsReadOnly();
+                    return nodeInformationDictionary.Values
+                        .Where(n => n.NodeState == NodeState.Live)
+                        .Where(n => n.Endpoint != selfNodeInformation.Endpoint)
+                        .Select(n => n.Endpoint)
+                        .ToList()
+                        .AsReadOnly();
+                }
+            }
+        }
+
+        public IReadOnlyList<string> NonLiveEndpoints
+        {
+            get
+            {
+                lock (lockObject)
+                {
+                    return nodeInformationDictionary.Values
+                        .Where(n => n.NodeState != NodeState.Live)
+                        .Select(n => n.Endpoint)
+                        .ToList()
+                        .AsReadOnly();
                 }
             }
         }
