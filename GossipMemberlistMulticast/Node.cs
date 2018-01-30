@@ -48,6 +48,8 @@ namespace GossipMemberlistMulticast
             this.nodeInformationDictionary = nodeInformationDictionary;
         }
 
+        public event EventHandler<NodeStateChangedEventArgs> NodeStateChanged;
+
         public string EndPoint => selfNodeInformation.Endpoint;
 
         public IReadOnlyList<string> LiveEndpoints
@@ -87,8 +89,19 @@ namespace GossipMemberlistMulticast
             {
                 var n = nodeInformationDictionary[endpoint];
                 var p = n.NodeStateProperty;
+
+                var originState = p.StateProperty;
                 p.StateProperty = nodeState;
                 p.Version = n.LastKnownPropertyVersion + 1;
+                if (p.StateProperty != originState)
+                {
+                    NodeStateChanged?.Invoke(this, new NodeStateChangedEventArgs
+                    {
+                        EndPoint = endpoint,
+                        PreviousNodeState = originState,
+                        CurrentNodeState = p.StateProperty
+                    });
+                }
             }
         }
 
@@ -213,8 +226,10 @@ namespace GossipMemberlistMulticast
                 if (nodeInformationDictionary.ContainsKey(n.Endpoint))
                 {
                     var myNode = nodeInformationDictionary[n.Endpoint];
+                    var originNodeState = myNode.NodeState;
                     if (myNode.NodeVersion < n.NodeVersion)
                     {
+                        myNode = n;
                         nodeInformationDictionary[n.Endpoint] = n;
                     }
                     else if (myNode.NodeVersion > n.NodeVersion)
@@ -244,10 +259,25 @@ namespace GossipMemberlistMulticast
                             }
                         }
                     }
+                    if (myNode.NodeState != originNodeState)
+                    {
+                        NodeStateChanged?.Invoke(this, new NodeStateChangedEventArgs
+                        {
+                            EndPoint = myNode.Endpoint,
+                            PreviousNodeState = originNodeState,
+                            CurrentNodeState = myNode.NodeState
+                        });
+                    }
                 }
                 else
                 {
                     nodeInformationDictionary.Add(n.Endpoint, n);
+                    NodeStateChanged?.Invoke(this, new NodeStateChangedEventArgs
+                    {
+                        EndPoint = n.Endpoint,
+                        PreviousNodeState = NodeState.Unknown,
+                        CurrentNodeState = n.NodeState
+                    });
                 }
             }
         }
