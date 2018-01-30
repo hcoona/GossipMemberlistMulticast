@@ -34,6 +34,17 @@ namespace GossipMemberlistMulticast
             }
         }
 
+        public void AssignNodeState(string endpoint, NodeState nodeState)
+        {
+            lock (lockObject)
+            {
+                var n = nodeInformationDictionary[endpoint];
+                var p = n.NodeStateProperty;
+                p.StateProperty = nodeState;
+                p.Version = n.LastKnownPropertyVersion + 1;
+            }
+        }
+
         public IList<NodeInformationSynopsis> GetNodesSynposis()
         {
             lock (lockObject)

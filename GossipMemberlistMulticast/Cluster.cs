@@ -97,7 +97,7 @@ namespace GossipMemberlistMulticast
                     {
                         logger.LogError(default, ex, "Failed to connect to peer {0} because {1}", peer.Endpoint, ex);
                         // TODO: Mark suspect & start probing
-                        peer.NodeState = NodeState.Dead;
+                        node.AssignNodeState(peer.Endpoint, NodeState.Dead);
                     }
                 }
 
@@ -108,9 +108,9 @@ namespace GossipMemberlistMulticast
         private NodeInformation PickRandomNode(Random random)
         {
             var liveNodes = node.KnownNodeInformation
-                                .Where(n => n.NodeState == NodeState.Live)
-                                .Where(n => n.Endpoint != selfNodeEndPoint)
-                                .ToArray();
+                .Where(n => n.NodeState == NodeState.Live)
+                .Where(n => n.Endpoint != selfNodeEndPoint)
+                .ToArray();
             var nonLiveNodes = node.KnownNodeInformation
                 .Where(n => n.NodeState != NodeState.Live)
                 .ToArray();
