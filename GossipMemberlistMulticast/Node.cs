@@ -14,6 +14,7 @@ namespace GossipMemberlistMulticast
         {
             var selfNodeInformation = NodeInformation.CreateSelfNode(selfNodeEndpoint);
             var seedsNodeInformation = seedsEndpointProvider.Invoke()
+                .Where(n => n != selfNodeEndpoint)
                 .Select(NodeInformation.CreateSeedNode)
                 .ToArray();
 
