@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Xunit;
 using Xunit.Abstractions;
@@ -300,9 +298,74 @@ namespace GossipMemberlistMulticast.Tests
         }
 
         [Fact]
-        public void TestGetDelta()
+        public void TestGetDeltaFromOldNode()
         {
+            var n = NodeInformation.CreateSelfNode(endpoint);
+            n.Properties.Add(new Dictionary<string, VersionedProperty>
+            {
+                {
+                    "test_key",
+                    new VersionedProperty
+                    {
+                        Version = 5,
+                        StringProperty = "test_value"
+                    }
+                },
+                {
+                    "test_key2",
+                    new VersionedProperty
+                    {
+                        Version = 9,
+                        StringProperty = "test_value2"
+                    }
+                }
+            });
 
+            var n2 = new NodeInformationSynopsis
+            {
+                Endpoint = endpoint,
+                LastKnownPropertyVersion = 100,
+                NodeVersion = n.NodeVersion - 1
+            };
+
+            var deltaN = n.GetDelta(n2, logger);
+            Assert.Equal(n, deltaN);
+        }
+
+        [Fact]
+        public void TestGetDeltaFromPeerNode()
+        {
+            var n = NodeInformation.CreateSelfNode(endpoint);
+            n.Properties.Add(new Dictionary<string, VersionedProperty>
+            {
+                {
+                    "test_key",
+                    new VersionedProperty
+                    {
+                        Version = 5,
+                        StringProperty = "test_value"
+                    }
+                },
+                {
+                    "test_key2",
+                    new VersionedProperty
+                    {
+                        Version = 9,
+                        StringProperty = "test_value2"
+                    }
+                }
+            });
+
+            var n2 = new NodeInformationSynopsis
+            {
+                Endpoint = endpoint,
+                LastKnownPropertyVersion = 6,
+                NodeVersion = n.NodeVersion
+            };
+
+            var deltaN = n.GetDelta(n2, logger);
+            Assert.Single(deltaN.Properties);
+            Assert.Equal(n.Properties["test_key2"], deltaN.Properties["test_key2"]);
         }
     }
 }
