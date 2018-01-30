@@ -73,6 +73,7 @@ namespace GossipMemberlistMulticast
                     }
                 }
 
+                // TODO: Read from configuration
                 await Task.Delay(1000);
             }
         }
@@ -144,6 +145,11 @@ namespace GossipMemberlistMulticast
             {
                 // TODO: pick k nodes & forward ping concurrently, currently only implement k = 1
                 var forwarderEndpoint = PickRandomNode(random);
+                if (forwarderEndpoint == null)
+                {
+                    throw new InvalidOperationException("Cannot pick a node for forwarder");
+                }
+
                 logger.LogInformation("Pick peer {0} as forwarder to connect peer {1}", forwarderEndpoint, peerEndpoint);
                 client = clientFactory.Invoke(forwarderEndpoint);
 
