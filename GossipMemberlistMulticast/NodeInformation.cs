@@ -79,10 +79,14 @@ namespace GossipMemberlistMulticast
         public VersionedProperty AddOrUpdateProperty(
             string key,
             string value,
-            Func<string, string, string> updateValueFactory)
-        {
-            return AddOrUpdateProperty(key, _ => value, updateValueFactory);
-        }
+            Func<string, string, string> updateValueFactory) =>
+            AddOrUpdateProperty(key, _ => value, updateValueFactory);
+
+        public VersionedProperty AddProperty(string key, string value) => AddOrUpdateProperty(key, value, null);
+
+        public VersionedProperty UpdateProperty(string key, Func<string, string, string> updateValueFactory) => AddOrUpdateProperty(key, (string)null, updateValueFactory);
+
+        public VersionedProperty UpdateProperty(string key, string value) => UpdateProperty(key, (_, __) => value);
 
         public NodeInformationSynopsis GetSynopsis() => new NodeInformationSynopsis
         {
@@ -156,6 +160,7 @@ namespace GossipMemberlistMulticast
             if (this.NodeVersion < otherSynopsis.NodeVersion)
             {
                 // Should not get here.
+                // TODO: log it
             }
             else if (this.NodeVersion > otherSynopsis.NodeVersion)
             {
