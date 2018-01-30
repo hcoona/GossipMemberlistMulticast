@@ -61,6 +61,9 @@ namespace GossipMemberlistMulticast
                 var liveNodes = node.LiveEndpoints;
                 var nonLiveNodes = node.NonLiveEndpoints;
 
+                logger.LogInformation("Live nodes: [{0}]", string.Join(", ", Enumerable.Repeat(node.EndPoint, 1).Concat(liveNodes)));
+                logger.LogInformation("Non-live nodes: [{0}]", string.Join(", ", nonLiveNodes));
+
                 var peerEndpoint = RandomPickNode(random, liveNodes, nonLiveNodes);
 
                 if (peerEndpoint != null)
@@ -78,7 +81,7 @@ namespace GossipMemberlistMulticast
                 }
 
                 // TODO: Read from configuration
-                await Task.Delay(1000);
+                await Task.Delay(5000);
             }
         }
 
@@ -99,17 +102,17 @@ namespace GossipMemberlistMulticast
             }
             else if (nonLiveNodes.Any())
             {
-                logger.LogWarning("There's no live nodes except than self");
+                logger.LogDebug("There's no live nodes except than self");
                 return nonLiveNodes.ChooseRandom(random);
             }
             else if (liveNodes.Any())
             {
-                logger.LogInformation("There's no non-live nodes");
+                logger.LogDebug("There's no non-live nodes");
                 return liveNodes.ChooseRandom(random);
             }
             else
             {
-                logger.LogWarning("There are no other nodes than self");
+                logger.LogDebug("There are no other nodes than self");
                 return null;
             }
         }
