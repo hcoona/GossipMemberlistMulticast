@@ -1,24 +1,29 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace GossipMemberlistMulticast
 {
     public class Cluster
     {
         private readonly ILogger<Cluster> logger;
+        private readonly IOptionsMonitor<ClusterOptions> optionsMonitor;
         private readonly Node node;
         private readonly Func<string, Gossiper.GossiperClient> clientFactory;
 
         public Cluster(
             ILogger<Cluster> logger,
+            IOptionsMonitor<ClusterOptions> optionsMonitor,
             Node node,
             Func<string, Gossiper.GossiperClient> clientFactory)
         {
             this.logger = logger;
+            this.optionsMonitor = optionsMonitor;
             this.node = node;
             this.clientFactory = clientFactory;
         }
@@ -56,8 +61,11 @@ namespace GossipMemberlistMulticast
         private async Task BackgroundLoop(CancellationToken cancellationToken)
         {
             var random = new Random();
+            var stopwatch = new Stopwatch();
             while (!cancellationToken.IsCancellationRequested)
             {
+                stopwatch.Restart();
+
                 var liveNodes = node.LiveEndpoints;
                 var nonLiveNodes = node.NonLiveEndpoints;
 
@@ -80,8 +88,21 @@ namespace GossipMemberlistMulticast
                     }
                 }
 
-                // TODO: Read from configuration
-                await Task.Delay(5000);
+                stopwatch.Stop();
+                var options = optionsMonitor.CurrentValue;
+                var millisecondsDelay = options.GossipIntervalMilliseconds - stopwatch.ElapsedMilliseconds;
+                if (millisecondsDelay > 0)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(millisecondsDelay), cancellationToken);
+                }
+                else
+                {
+                    logger.LogWarning(
+                        "The sync-up process took more time ({0}ms) than gossip interval ({1}ms)",
+                        stopwatch.ElapsedMilliseconds,
+                        options.GossipIntervalMilliseconds);
+                    await Task.Delay(TimeSpan.FromMilliseconds(options.GossipIntervalMilliseconds / 10.0));
+                }
             }
         }
 
@@ -90,14 +111,13 @@ namespace GossipMemberlistMulticast
             if (liveNodes.Any() && nonLiveNodes.Any())
             {
                 // Probably choose non-live nodes.
-                // TODO: Read from configuration
-                if (random.NextDouble() > 0.1)
+                if (random.NextDouble() <= optionsMonitor.CurrentValue.GossipNonLiveNodesPossibility)
                 {
-                    return liveNodes.ChooseRandom(random);
+                    return nonLiveNodes.ChooseRandom(random);
                 }
                 else
                 {
-                    return nonLiveNodes.ChooseRandom(random);
+                    return liveNodes.ChooseRandom(random);
                 }
             }
             else if (nonLiveNodes.Any())
@@ -120,6 +140,7 @@ namespace GossipMemberlistMulticast
         private async Task SyncWithPeerAsync(string peerEndpoint, Random random, CancellationToken cancellationToken)
         {
             var client = clientFactory.Invoke(peerEndpoint);
+            var options = optionsMonitor.CurrentValue;
 
             var synRequest = new Ping1Request();
             synRequest.NodesSynopsis.AddRange(node.GetNodesSynposis());
@@ -127,16 +148,15 @@ namespace GossipMemberlistMulticast
             bool failed = false;
             try
             {
-                // TODO: Read the deadline setting from configuration
                 var synResponse = await client.Ping1Async(
                     synRequest,
-                    deadline: DateTime.UtcNow + TimeSpan.FromMilliseconds(200),
+                    deadline: DateTime.UtcNow + TimeSpan.FromMilliseconds(options.PingTimeoutMilliseconds),
                     cancellationToken: cancellationToken);
                 var ack2Request = node.Ack1(synResponse);
 
                 var ack2Response = await client.Ping2Async(
                     ack2Request,
-                    deadline: DateTime.UtcNow + TimeSpan.FromMilliseconds(200),
+                    deadline: DateTime.UtcNow + TimeSpan.FromMilliseconds(options.PingTimeoutMilliseconds),
                     cancellationToken: cancellationToken);
             }
             catch (Exception ex)
@@ -157,7 +177,6 @@ namespace GossipMemberlistMulticast
                 logger.LogInformation("Pick peer {0} as forwarder to connect peer {1}", forwarderEndpoint, peerEndpoint);
                 client = clientFactory.Invoke(forwarderEndpoint);
 
-                // TODO: Read the deadline setting from configuration
                 var forwardedSynResponse = await client.ForwardAsync(
                     new ForwardRequest
                     {
@@ -165,7 +184,7 @@ namespace GossipMemberlistMulticast
                         TargetMethod = nameof(client.Ping1),
                         Ping1Request = synRequest
                     },
-                    deadline: DateTime.UtcNow + TimeSpan.FromMilliseconds(200),
+                    deadline: DateTime.UtcNow + TimeSpan.FromMilliseconds(options.ForwardTimeoutMilliseconds),
                     cancellationToken: cancellationToken);
                 Ping1Response synResponse;
                 switch (forwardedSynResponse.ResponseCase)
@@ -184,7 +203,6 @@ namespace GossipMemberlistMulticast
                         throw new Exception("Unknown response type");
                 }
 
-                // TODO: Read the deadline setting from configuration
                 var ack2Request = node.Ack1(synResponse);
                 var forwardedAck2Response = await client.ForwardAsync(
                     new ForwardRequest
@@ -193,7 +211,7 @@ namespace GossipMemberlistMulticast
                         TargetMethod = nameof(client.Ping2),
                         Ping2Request = ack2Request
                     },
-                    deadline: DateTime.UtcNow + TimeSpan.FromMilliseconds(200),
+                    deadline: DateTime.UtcNow + TimeSpan.FromMilliseconds(options.ForwardTimeoutMilliseconds),
                     cancellationToken: cancellationToken);
                 Ping2Response ack2Response;
                 switch (forwardedAck2Response.ResponseCase)
