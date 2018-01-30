@@ -89,7 +89,7 @@ namespace GossipMemberlistMulticast
             }
         }
 
-        private void FillRequiredOrUpdatedNodes(
+        internal void FillRequiredOrUpdatedNodes(
             IEnumerable<NodeInformationSynopsis> nodesSynopsis,
             IList<NodeInformationSynopsis> requiredNodesSynopsis,
             IList<NodeInformation> updatedNodesSynopsis)
@@ -148,7 +148,7 @@ namespace GossipMemberlistMulticast
             }
         }
 
-        private void MergeUpdateNodes(IEnumerable<NodeInformation> updateNodes)
+        internal void MergeUpdateNodes(IEnumerable<NodeInformation> updateNodes)
         {
             foreach (var n in updateNodes)
             {
