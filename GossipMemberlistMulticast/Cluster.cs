@@ -30,7 +30,8 @@ namespace GossipMemberlistMulticast
             this.clientFactory = clientFactory;
         }
 
-        private Node node;
+        public Node Node { get; private set; }
+
         private CancellationTokenSource backgroundLoopCancellationTokenSource;
         private Task backgroundLoopTask;
 
@@ -50,7 +51,7 @@ namespace GossipMemberlistMulticast
                 nodeInformationDictionary.Add(n.Endpoint, n);
             }
 
-            node = new Node(
+            Node = new Node(
                 serviceProvider.GetRequiredService<ILogger<Node>>(),
                 selfNodeInformation,
                 nodeInformationDictionary);
@@ -97,7 +98,7 @@ namespace GossipMemberlistMulticast
                     {
                         logger.LogError(default, ex, "Failed to connect to peer {0} because {1}", peerEndpoint, ex);
                         // TODO: Mark suspect & start probing
-                        node.AssignNodeState(peerEndpoint, NodeState.Dead);
+                        Node.AssignNodeState(peerEndpoint, NodeState.Dead);
                     }
                 }
 
@@ -107,8 +108,8 @@ namespace GossipMemberlistMulticast
 
         private string PickRandomNode(Random random)
         {
-            var liveNodes = node.LiveEndpoints;
-            var nonLiveNodes = node.NonLiveEndpoints;
+            var liveNodes = Node.LiveEndpoints;
+            var nonLiveNodes = Node.NonLiveEndpoints;
 
             if (liveNodes.Any() && nonLiveNodes.Any())
             {
@@ -145,13 +146,13 @@ namespace GossipMemberlistMulticast
             var client = clientFactory.Invoke(peerEndpoint);
 
             var synRequest = new Ping1Request();
-            synRequest.NodesSynopsis.AddRange(node.GetNodesSynposis());
+            synRequest.NodesSynopsis.AddRange(Node.GetNodesSynposis());
 
             bool failed = false;
             try
             {
                 var synResponse = await client.Ping1Async(synRequest, cancellationToken: cancellationToken);
-                var ack2Request = node.Ack1(synResponse);
+                var ack2Request = Node.Ack1(synResponse);
 
                 var ack2Response = await client.Ping2Async(ack2Request, cancellationToken: cancellationToken);
             }
@@ -192,7 +193,7 @@ namespace GossipMemberlistMulticast
                         throw new Exception("Unknown response type");
                 }
 
-                var ack2Request = node.Ack1(synResponse);
+                var ack2Request = Node.Ack1(synResponse);
                 var forwardedAck2Response = await client.ForwardAsync(
                     new ForwardRequest
                     {
