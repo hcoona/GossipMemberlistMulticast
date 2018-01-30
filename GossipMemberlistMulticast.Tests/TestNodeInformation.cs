@@ -143,5 +143,98 @@ namespace GossipMemberlistMulticast.Tests
             Assert.Equal(n2.LastKnownPropertyVersion, n.LastKnownPropertyVersion);
             Assert.Equal(n2.Properties, n.Properties);
         }
+
+        [Fact]
+        public void TestUpdateOldNodeInformation()
+        {
+            var n = NodeInformation.CreateSelfNode(endpoint);
+            n.Properties.Add(new Dictionary<string, VersionedProperty>
+            {
+                {
+                    "test_key",
+                    new VersionedProperty
+                    {
+                        Version = 5,
+                        StringProperty = "test_value"
+                    }
+                },
+                {
+                    "test_key2",
+                    new VersionedProperty
+                    {
+                        Version = 9,
+                        StringProperty = "test_value2"
+                    }
+                }
+            });
+
+            var n2 = NodeInformation.CreateSelfNode(endpoint);
+            n2.Properties.Add(new Dictionary<string, VersionedProperty>
+            {
+                {
+                    "test_key",
+                    new VersionedProperty
+                    {
+                        Version = 5,
+                        StringProperty = "test_value"
+                    }
+                }
+            });
+
+            Assert.NotEqual(n2, n);
+
+            var originN = n.Clone();
+            n.Update(n2, logger);
+
+            Assert.NotEqual(n2, n);
+            Assert.Equal(originN, n);
+        }
+
+        [Fact]
+        public void TestUpdateNewNodeInformation()
+        {
+            var n = NodeInformation.CreateSelfNode(endpoint);
+            n.Properties.Add(new Dictionary<string, VersionedProperty>
+            {
+                {
+                    "test_key",
+                    new VersionedProperty
+                    {
+                        Version = 5,
+                        StringProperty = "test_value"
+                    }
+                },
+                {
+                    "test_key2",
+                    new VersionedProperty
+                    {
+                        Version = 9,
+                        StringProperty = "test_value2"
+                    }
+                }
+            });
+
+            var n2 = NodeInformation.CreateSelfNode(endpoint);
+            n2.NodeVersion += 1;
+            n2.Properties.Add(new Dictionary<string, VersionedProperty>
+            {
+                {
+                    "test_key",
+                    new VersionedProperty
+                    {
+                        Version = 2,
+                        StringProperty = "test_value"
+                    }
+                }
+            });
+
+            Assert.NotEqual(n2, n);
+
+            var originN = n.Clone();
+            n.Update(n2, logger);
+
+            Assert.Equal(n2, n);
+            Assert.NotEqual(originN, n);
+        }
     }
 }
