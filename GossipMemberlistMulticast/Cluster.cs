@@ -151,10 +151,17 @@ namespace GossipMemberlistMulticast
             bool failed = false;
             try
             {
-                var synResponse = await client.Ping1Async(synRequest, cancellationToken: cancellationToken);
+                // TODO: Read the deadline setting from configuration
+                var synResponse = await client.Ping1Async(
+                    synRequest,
+                    deadline: DateTime.UtcNow + TimeSpan.FromMilliseconds(200),
+                    cancellationToken: cancellationToken);
                 var ack2Request = Node.Ack1(synResponse);
 
-                var ack2Response = await client.Ping2Async(ack2Request, cancellationToken: cancellationToken);
+                var ack2Response = await client.Ping2Async(
+                    ack2Request,
+                    deadline: DateTime.UtcNow + TimeSpan.FromMilliseconds(200),
+                    cancellationToken: cancellationToken);
             }
             catch (Exception ex)
             {
@@ -169,13 +176,16 @@ namespace GossipMemberlistMulticast
                 logger.LogInformation("Pick peer {0} as forwarder to connect peer {1}", forwarderEndpoint, peerEndpoint);
                 client = clientFactory.Invoke(forwarderEndpoint);
 
+                // TODO: Read the deadline setting from configuration
                 var forwardedSynResponse = await client.ForwardAsync(
                     new ForwardRequest
                     {
                         TargetEndpoint = peerEndpoint,
                         TargetMethod = nameof(client.Ping1),
                         Ping1Request = synRequest
-                    }, cancellationToken: cancellationToken);
+                    },
+                    deadline: DateTime.UtcNow + TimeSpan.FromMilliseconds(200),
+                    cancellationToken: cancellationToken);
                 Ping1Response synResponse;
                 switch (forwardedSynResponse.ResponseCase)
                 {
@@ -193,6 +203,7 @@ namespace GossipMemberlistMulticast
                         throw new Exception("Unknown response type");
                 }
 
+                // TODO: Read the deadline setting from configuration
                 var ack2Request = Node.Ack1(synResponse);
                 var forwardedAck2Response = await client.ForwardAsync(
                     new ForwardRequest
@@ -200,7 +211,9 @@ namespace GossipMemberlistMulticast
                         TargetEndpoint = peerEndpoint,
                         TargetMethod = nameof(client.Ping2),
                         Ping2Request = ack2Request
-                    }, cancellationToken: cancellationToken);
+                    },
+                    deadline: DateTime.UtcNow + TimeSpan.FromMilliseconds(200),
+                    cancellationToken: cancellationToken);
                 Ping2Response ack2Response;
                 switch (forwardedAck2Response.ResponseCase)
                 {
