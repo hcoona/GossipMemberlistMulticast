@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -57,7 +58,10 @@ namespace GossipMemberlistMulticast
             var random = new Random();
             while (!cancellationToken.IsCancellationRequested)
             {
-                var peerEndpoint = PickRandomNode(random);
+                var liveNodes = node.LiveEndpoints;
+                var nonLiveNodes = node.NonLiveEndpoints;
+
+                var peerEndpoint = RandomPickNode(random, liveNodes, nonLiveNodes);
 
                 if (peerEndpoint != null)
                 {
@@ -78,11 +82,8 @@ namespace GossipMemberlistMulticast
             }
         }
 
-        private string PickRandomNode(Random random)
+        private string RandomPickNode(Random random, IReadOnlyList<string> liveNodes, IReadOnlyList<string> nonLiveNodes)
         {
-            var liveNodes = node.LiveEndpoints;
-            var nonLiveNodes = node.NonLiveEndpoints;
-
             if (liveNodes.Any() && nonLiveNodes.Any())
             {
                 // Probably choose non-live nodes.
@@ -144,7 +145,7 @@ namespace GossipMemberlistMulticast
             if (failed)
             {
                 // TODO: pick k nodes & forward ping concurrently, currently only implement k = 1
-                var forwarderEndpoint = PickRandomNode(random);
+                var forwarderEndpoint = RandomPickNode(random, node.LiveEndpoints, new List<string>());
                 if (forwarderEndpoint == null)
                 {
                     throw new InvalidOperationException("Cannot pick a node for forwarder");
