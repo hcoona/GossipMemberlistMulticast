@@ -9,7 +9,7 @@ namespace GossipMemberlistMulticast
         private readonly object lockObject = new object();
         private readonly ILogger<Node> logger;
         private readonly NodeInformation selfNodeInformation;
-        private readonly IDictionary<string, NodeInformation> nodeInformationDictionary;
+        internal readonly IDictionary<string, NodeInformation> nodeInformationDictionary;
 
         public Node(
             ILogger<Node> logger,
