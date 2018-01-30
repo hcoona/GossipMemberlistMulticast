@@ -62,9 +62,8 @@ namespace GossipMemberlistMulticast
         {
             using (logger.BeginScope("EndPoint={0}", this.Endpoint))
             {
-                if (this.NodeVersion <= other.NodeVersion)
+                if (this.NodeVersion == other.NodeVersion)
                 {
-                    this.NodeVersion = other.NodeVersion;
                     foreach (var p in other.Properties)
                     {
                         if (this.Properties.ContainsKey(p.Key))
@@ -96,6 +95,12 @@ namespace GossipMemberlistMulticast
                             logger.LogDebug("Property {0} added to value {1}", p.Key, p.Value);
                         }
                     }
+                }
+                else if (this.NodeVersion < other.NodeVersion)
+                {
+                    this.NodeVersion = other.NodeVersion;
+                    this.Properties.Clear();
+                    this.Properties.Add(other.Properties);
                 }
                 else
                 {
