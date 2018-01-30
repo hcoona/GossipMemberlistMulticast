@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using System.Linq;
 using Microsoft.Extensions.Logging;
@@ -49,6 +50,38 @@ namespace GossipMemberlistMulticast
         public void BumpVersion()
         {
             this.NodeStateProperty.Version = LastKnownPropertyVersion + 1;
+        }
+
+        public VersionedProperty AddOrUpdateProperty(
+            string key,
+            Func<string, string> addValueFactory,
+            Func<string, string, string> updateValueFactory)
+        {
+            VersionedProperty property;
+            if (Properties.ContainsKey(key))
+            {
+                property = Properties[key];
+                property.StringProperty = updateValueFactory(key, property.StringProperty);
+                property.Version = LastKnownPropertyVersion + 1;
+            }
+            else
+            {
+                property = new VersionedProperty
+                {
+                    StringProperty = addValueFactory(key),
+                    Version = LastKnownPropertyVersion + 1
+                };
+                Properties.Add(key, property);
+            }
+            return property;
+        }
+
+        public VersionedProperty AddOrUpdateProperty(
+            string key,
+            string value,
+            Func<string, string, string> updateValueFactory)
+        {
+            return AddOrUpdateProperty(key, _ => value, updateValueFactory);
         }
 
         public NodeInformationSynopsis GetSynopsis() => new NodeInformationSynopsis
