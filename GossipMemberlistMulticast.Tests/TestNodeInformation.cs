@@ -236,5 +236,73 @@ namespace GossipMemberlistMulticast.Tests
             Assert.Equal(n2, n);
             Assert.NotEqual(originN, n);
         }
+
+        [Fact]
+        public void TestUpdateDeltaNodeInformation()
+        {
+            var n = NodeInformation.CreateSelfNode(endpoint);
+            n.Properties.Add(new Dictionary<string, VersionedProperty>
+            {
+                {
+                    "test_key1",
+                    new VersionedProperty
+                    {
+                        Version = 5,
+                        StringProperty = "test_value"
+                    }
+                },
+                {
+                    "test_key2",
+                    new VersionedProperty
+                    {
+                        Version = 9,
+                        StringProperty = "test_value2"
+                    }
+                },
+                {
+                    "test_key3",
+                    new VersionedProperty
+                    {
+                        Version = 10,
+                        StringProperty = "test_value3"
+                    }
+                }
+            });
+
+            var n2 = n.Clone();
+            n2.Properties["test_key1"] = new VersionedProperty
+            {
+                Version = 11,
+                StringProperty = "test_value1"
+            };
+            n2.Properties.Remove("test_key2");
+            n2.Properties["test_key3"] = new VersionedProperty
+            {
+                Version = 6,
+                StringProperty = "test_value3_old"
+            };
+            n2.Properties.Add("test_key4", new VersionedProperty
+            {
+                Version = 12,
+                StringProperty = "test_value4"
+            });
+
+            var originN = n.Clone();
+            n.Update(n2, logger);
+            Assert.Equal(originN.NodeVersion, n.NodeVersion);
+            Assert.Equal(n2.LastKnownPropertyVersion, n.LastKnownPropertyVersion);
+            Assert.Equal(5, n.Properties.Count);
+            Assert.Equal(n2.NodeStateProperty, n.NodeStateProperty);
+            Assert.Equal(n2.Properties["test_key1"], n.Properties["test_key1"]);
+            Assert.Equal(originN.Properties["test_key2"], n.Properties["test_key2"]);
+            Assert.Equal(originN.Properties["test_key3"], n.Properties["test_key3"]);
+            Assert.Equal(n2.Properties["test_key4"], n.Properties["test_key4"]);
+        }
+
+        [Fact]
+        public void TestGetDelta()
+        {
+
+        }
     }
 }
