@@ -6,4 +6,4 @@ before_build:
 - dotnet restore
 
 artifacts:
-- path: 'PhiFailureDetector/bin/**/*'
+- path: '**/bin/**/*'
