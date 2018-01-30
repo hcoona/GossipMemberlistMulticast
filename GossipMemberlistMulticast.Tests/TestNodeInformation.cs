@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -11,16 +12,11 @@ namespace GossipMemberlistMulticast.Tests
     {
         private const string endpoint = "127.0.0.1:12251";
 
-        private readonly ITestOutputHelper testOutputHelper;
-        private readonly IServiceProvider container;
+        private readonly ILogger logger;
 
         public TestNodeInformation(ITestOutputHelper testOutputHelper)
         {
-            this.testOutputHelper = testOutputHelper;
-
-            var services = new ServiceCollection();
-            services.AddLogging(b => b.AddProvider(new XUnitOutputLoggerProvider(testOutputHelper)));
-            this.container = services.BuildServiceProvider();
+            logger = new XUnitOutputLogger(testOutputHelper);
         }
 
         [Fact]
@@ -76,6 +72,76 @@ namespace GossipMemberlistMulticast.Tests
 
             n.BumpVersion();
             Assert.Equal(11, n.LastKnownPropertyVersion);
+        }
+
+        [Fact]
+        public void TestGetSynopsis()
+        {
+            var n = NodeInformation.CreateSelfNode(endpoint);
+            n.Properties.Add(new Dictionary<string, VersionedProperty>
+            {
+                {
+                    "test_key",
+                    new VersionedProperty
+                    {
+                        Version = 5,
+                        StringProperty = "test_value"
+                    }
+                },
+                {
+                    "test_key2",
+                    new VersionedProperty
+                    {
+                        Version = 9,
+                        StringProperty = "test_value2"
+                    }
+                }
+            });
+
+            var ns = n.GetSynopsis();
+            Assert.Equal(endpoint, ns.Endpoint);
+            Assert.Equal(Process.GetCurrentProcess().StartTime.ToFileTimeUtc(), ns.NodeVersion);
+            Assert.Equal(9, ns.LastKnownPropertyVersion);
+        }
+
+        [Fact]
+        public void TestUpdateInitialSeedNode()
+        {
+            var n = NodeInformation.CreateSeedNode(endpoint);
+            var n2 = NodeInformation.CreateSelfNode(endpoint);
+
+            n.Update(n2, logger);
+            Assert.Equal(n2.NodeVersion, n.NodeVersion);
+            Assert.Equal(n2.NodeState, n.NodeState);
+            Assert.Equal(n2.LastKnownPropertyVersion, n.LastKnownPropertyVersion);
+            Assert.Equal(n2.Properties.Count, n.Properties.Count);
+
+            n2.Properties.Add(new Dictionary<string, VersionedProperty>
+            {
+                {
+                    "test_key",
+                    new VersionedProperty
+                    {
+                        Version = 5,
+                        StringProperty = "test_value"
+                    }
+                },
+                {
+                    "test_key2",
+                    new VersionedProperty
+                    {
+                        Version = 9,
+                        StringProperty = "test_value2"
+                    }
+                }
+            });
+            n2.BumpVersion();
+
+            n.Update(n2, logger);
+            Assert.Equal(n2.NodeVersion, n.NodeVersion);
+            Assert.Equal(n2.NodeState, n.NodeState);
+            Assert.Equal(n2.LastKnownPropertyVersion, n.LastKnownPropertyVersion);
+            Assert.Equal(n2.Properties, n.Properties);
         }
     }
 }
