@@ -1,61 +1,32 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace GossipMemberlistMulticast
 {
     public class Cluster
     {
-        private readonly IServiceProvider serviceProvider;
         private readonly ILogger<Cluster> logger;
-        private readonly string selfNodeEndPoint;
-        private readonly Func<IEnumerable<string>> seedsProvider;
+        private readonly Node node;
         private readonly Func<string, Gossiper.GossiperClient> clientFactory;
 
         public Cluster(
-            IServiceProvider serviceProvider,
             ILogger<Cluster> logger,
-            string selfNodeEndPoint,
-            Func<IEnumerable<string>> seedsProvider,
+            Node node,
             Func<string, Gossiper.GossiperClient> clientFactory)
         {
-            this.serviceProvider = serviceProvider;
             this.logger = logger;
-            this.selfNodeEndPoint = selfNodeEndPoint;
-            this.seedsProvider = seedsProvider;
+            this.node = node;
             this.clientFactory = clientFactory;
         }
-
-        public Node Node { get; private set; }
 
         private CancellationTokenSource backgroundLoopCancellationTokenSource;
         private Task backgroundLoopTask;
 
         public Task StartAsync(CancellationToken cancellationToken = default)
         {
-            var selfNodeInformation = NodeInformation.CreateSelfNode(selfNodeEndPoint);
-            var seedsNodeInformation = seedsProvider()
-                .Select(NodeInformation.CreateSeedNode)
-                .ToArray();
-
-            var nodeInformationDictionary = new Dictionary<string, NodeInformation>(StringComparer.InvariantCultureIgnoreCase)
-            {
-                { selfNodeInformation.Endpoint, selfNodeInformation }
-            };
-            foreach (var n in seedsNodeInformation)
-            {
-                nodeInformationDictionary.Add(n.Endpoint, n);
-            }
-
-            Node = new Node(
-                serviceProvider.GetRequiredService<ILogger<Node>>(),
-                selfNodeInformation,
-                nodeInformationDictionary);
-
             backgroundLoopCancellationTokenSource = new CancellationTokenSource();
             backgroundLoopTask = StartBackgroundLoopAsync(backgroundLoopCancellationTokenSource.Token);
 
@@ -98,7 +69,7 @@ namespace GossipMemberlistMulticast
                     {
                         logger.LogError(default, ex, "Failed to connect to peer {0} because {1}", peerEndpoint, ex);
                         // TODO: Mark suspect & start probing
-                        Node.AssignNodeState(peerEndpoint, NodeState.Dead);
+                        node.AssignNodeState(peerEndpoint, NodeState.Dead);
                     }
                 }
 
@@ -108,8 +79,8 @@ namespace GossipMemberlistMulticast
 
         private string PickRandomNode(Random random)
         {
-            var liveNodes = Node.LiveEndpoints;
-            var nonLiveNodes = Node.NonLiveEndpoints;
+            var liveNodes = node.LiveEndpoints;
+            var nonLiveNodes = node.NonLiveEndpoints;
 
             if (liveNodes.Any() && nonLiveNodes.Any())
             {
@@ -146,7 +117,7 @@ namespace GossipMemberlistMulticast
             var client = clientFactory.Invoke(peerEndpoint);
 
             var synRequest = new Ping1Request();
-            synRequest.NodesSynopsis.AddRange(Node.GetNodesSynposis());
+            synRequest.NodesSynopsis.AddRange(node.GetNodesSynposis());
 
             bool failed = false;
             try
@@ -156,7 +127,7 @@ namespace GossipMemberlistMulticast
                     synRequest,
                     deadline: DateTime.UtcNow + TimeSpan.FromMilliseconds(200),
                     cancellationToken: cancellationToken);
-                var ack2Request = Node.Ack1(synResponse);
+                var ack2Request = node.Ack1(synResponse);
 
                 var ack2Response = await client.Ping2Async(
                     ack2Request,
@@ -204,7 +175,7 @@ namespace GossipMemberlistMulticast
                 }
 
                 // TODO: Read the deadline setting from configuration
-                var ack2Request = Node.Ack1(synResponse);
+                var ack2Request = node.Ack1(synResponse);
                 var forwardedAck2Response = await client.ForwardAsync(
                     new ForwardRequest
                     {

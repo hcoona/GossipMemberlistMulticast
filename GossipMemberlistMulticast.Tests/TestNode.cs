@@ -24,22 +24,8 @@ namespace GossipMemberlistMulticast.Tests
             nodeLogger = new Logger<Node>(new LoggerFactory(new[] { new XUnitOutputLoggerProvider(testOutputHelper) }));
         }
 
-        private Node CreateNode(string selfEndpoint, IEnumerable<string> seedsEndpoint)
-        {
-            var selfNodeInformation = NodeInformation.CreateSelfNode(selfEndpoint);
-            var nodeInformationDictionary = new Dictionary<string, NodeInformation>
-            {
-                { selfEndpoint, selfNodeInformation }
-            };
-            foreach (var e in seedsEndpoint)
-            {
-                nodeInformationDictionary.Add(e, NodeInformation.CreateSeedNode(e));
-            }
-            return new Node(
-                nodeLogger,
-                selfNodeInformation,
-                nodeInformationDictionary);
-        }
+        private Node CreateNode(string selfEndpoint, IEnumerable<string> seedsEndpoint) =>
+            Node.Create(selfEndpoint, () => seedsEndpoint, () => nodeLogger);
 
         [Fact]
         public void TestInitialState()

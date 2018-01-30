@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Logging;
@@ -6,6 +7,31 @@ namespace GossipMemberlistMulticast
 {
     public class Node
     {
+        public static Node Create(
+            string selfNodeEndpoint,
+            Func<IEnumerable<string>> seedsEndpointProvider,
+            Func<ILogger<Node>> loggerFactory)
+        {
+            var selfNodeInformation = NodeInformation.CreateSelfNode(selfNodeEndpoint);
+            var seedsNodeInformation = seedsEndpointProvider.Invoke()
+                .Select(NodeInformation.CreateSeedNode)
+                .ToArray();
+
+            var nodeInformationDictionary = new Dictionary<string, NodeInformation>(StringComparer.InvariantCultureIgnoreCase)
+            {
+                { selfNodeInformation.Endpoint, selfNodeInformation }
+            };
+            foreach (var n in seedsNodeInformation)
+            {
+                nodeInformationDictionary.Add(n.Endpoint, n);
+            }
+
+            return new Node(
+                loggerFactory.Invoke(),
+                selfNodeInformation,
+                nodeInformationDictionary);
+        }
+
         private readonly object lockObject = new object();
         private readonly ILogger<Node> logger;
         private readonly NodeInformation selfNodeInformation;
