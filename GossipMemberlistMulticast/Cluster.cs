@@ -190,17 +190,14 @@ namespace GossipMemberlistMulticast
                 switch (forwardedSynResponse.ResponseCase)
                 {
                     case ForwardResponse.ResponseOneofCase.ErrorMessage:
-                        // TODO: Exception type
-                        throw new Exception(forwardedSynResponse.ErrorMessage);
+                        throw new RpcRemoteException(forwardedSynResponse.ErrorMessage);
                     case ForwardResponse.ResponseOneofCase.None:
-                        // TODO: Exception type
-                        throw new Exception("Forward response not set content from remote");
+                        throw new RpcInvalidResponseException("Forward response not set content from remote");
                     case ForwardResponse.ResponseOneofCase.Ping1Response:
                         synResponse = forwardedSynResponse.Ping1Response;
                         break;
                     default:
-                        // TODO: Exception type
-                        throw new Exception("Unknown response type");
+                        throw new RpcInvalidResponseException("Unknown response type");
                 }
 
                 var ack2Request = node.Ack1(synResponse);
@@ -217,17 +214,14 @@ namespace GossipMemberlistMulticast
                 switch (forwardedAck2Response.ResponseCase)
                 {
                     case ForwardResponse.ResponseOneofCase.ErrorMessage:
-                        // TODO: Exception type
-                        throw new Exception(forwardedSynResponse.ErrorMessage);
+                        throw new RpcRemoteException(forwardedSynResponse.ErrorMessage);
                     case ForwardResponse.ResponseOneofCase.None:
-                        // TODO: Exception type
-                        throw new Exception("Forward response not set content from remote");
+                        throw new RpcInvalidResponseException("Forward response not set content from remote");
                     case ForwardResponse.ResponseOneofCase.Ping2Response:
                         ack2Response = forwardedAck2Response.Ping2Response;
                         break;
                     default:
-                        // TODO: Exception type
-                        throw new Exception("Unknown response type");
+                        throw new RpcInvalidResponseException("Unknown response type");
                 }
             }
         }
