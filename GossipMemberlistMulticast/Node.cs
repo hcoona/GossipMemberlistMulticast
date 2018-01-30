@@ -235,8 +235,11 @@ namespace GossipMemberlistMulticast
                     }
                     else if (myNode.NodeVersion > n.NodeVersion)
                     {
-                        // Ignored
-                        // TODO: log it
+                        logger.LogDebug(
+                            "Node {0} received node version ({1}) is lower than current known node version ({2})",
+                            n.Endpoint,
+                            n.NodeVersion,
+                            myNode.NodeVersion);
                     }
                     else
                     {
@@ -250,8 +253,12 @@ namespace GossipMemberlistMulticast
                                 }
                                 else
                                 {
-                                    // Ignored
-                                    // TODO: log it
+                                    logger.LogDebug(
+                                        "Node {0} property {1} received version ({2}) is lower or equal to current known version ({3})",
+                                        myNode.Endpoint,
+                                        p.Key,
+                                        p.Value.Version,
+                                        myNode.Properties[p.Key].Version);
                                 }
                             }
                             else

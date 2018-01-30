@@ -159,8 +159,12 @@ namespace GossipMemberlistMulticast
 
             if (this.NodeVersion < otherSynopsis.NodeVersion)
             {
-                // Should not get here.
-                // TODO: log it
+                logger.LogError(
+                    new InvalidOperationException(),
+                    "Node {0} current known version ({1}) is lower than peer required node version ({2})",
+                    Endpoint,
+                    NodeVersion,
+                    otherSynopsis.NodeVersion);
             }
             else if (this.NodeVersion > otherSynopsis.NodeVersion)
             {
