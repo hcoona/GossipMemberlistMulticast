@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using GrpcException = Grpc.Core.RpcException;
 
 namespace GossipMemberlistMulticast
 {
@@ -80,11 +81,15 @@ namespace GossipMemberlistMulticast
                     {
                         await SyncWithPeerAsync(peerEndpoint, random, cancellationToken);
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (ex is GrpcException || ex is InvalidOperationException)
                     {
-                        logger.LogError(default, ex, "Failed to connect to peer {0} because {1}", peerEndpoint, ex);
+                        logger.LogError(ex, "Failed to connect to peer {0} because {1}", peerEndpoint, ex.Message);
                         // TODO: Mark suspect & start probing
                         node.AssignNodeState(peerEndpoint, NodeState.Dead);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, ex.ToString());
                     }
                 }
 
@@ -159,9 +164,9 @@ namespace GossipMemberlistMulticast
                     deadline: DateTime.UtcNow + TimeSpan.FromMilliseconds(options.PingTimeoutMilliseconds),
                     cancellationToken: cancellationToken);
             }
-            catch (Exception ex)
+            catch (GrpcException ex)
             {
-                logger.LogError(default, ex, "Cannot ping peer {0} because {1}", peerEndpoint, ex);
+                logger.LogError(ex, "Cannot ping peer {0} because {1}", peerEndpoint, ex.Message);
                 failed = true;
             }
 
