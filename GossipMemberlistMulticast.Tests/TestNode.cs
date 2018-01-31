@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using Microsoft.Extensions.Logging;
 using Xunit;
 using Xunit.Abstractions;
@@ -175,6 +176,29 @@ namespace GossipMemberlistMulticast.Tests
                     NodeInformation.CreateSeedNode(e),
                     node2.nodeInformationDictionary[e]);
             }
+        }
+
+        [Fact]
+        public void PrintMessageSizeForClusterSize()
+        {
+            var node = CreateNode(SelfEndpoint, SeedsEndpoint);
+            var baseIpAddress = IPAddress.Parse("192.168.1.1");
+            for (int i = 0; i < 10000; i++)
+            {
+#pragma warning disable CS0618
+                baseIpAddress.Address++;
+#pragma warning restore CS0618
+                var endpoint = baseIpAddress.ToString() + ":19999";
+                node.nodeInformationDictionary.Add(
+                    endpoint,
+                    NodeInformation.CreateSelfNode(endpoint));
+            }
+
+            var ping1Request = new Ping1Request
+            {
+                NodesSynopsis = { node.GetNodesSynposis() }
+            };
+            logger.LogInformation("Ping1 request size: {0}", ping1Request.CalculateSize());
         }
     }
 }
