@@ -21,6 +21,10 @@ namespace GossipMemberlistMulticast.ConsoleApp
             var services = new ServiceCollection();
             services.AddSingleton(configuration);
             services.AddLogging(b => b.AddNLog().SetMinimumLevel(LogLevel.Trace));
+            services.AddSingleton<ISeedDiscoverPlugin>(
+                new StaticSeedDiscoverPlugin(
+                   configuration.GetValue<string>("Root:Seeds")
+                       .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)));
             services.Configure<ClusterOptions>(configuration.GetSection("Cluster"));
 
             var selfNodeEndpoint = configuration.GetValue<string>("Root:EndPoint");
@@ -33,7 +37,7 @@ namespace GossipMemberlistMulticast.ConsoleApp
 
             services.AddScoped(serviceProvider => Node.Create(
                 selfNodeEndpoint,
-                () => configuration.GetValue<string>("Root:Seeds").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries),
+                () => serviceProvider.GetRequiredService<ISeedDiscoverPlugin>().GetSeedsEndpointAsync().GetAwaiter().GetResult(),
                 () => serviceProvider.GetRequiredService<ILogger<Node>>()));
             services.AddScoped(serviceProvider => new GossiperImpl(
                 serviceProvider.GetRequiredService<ILogger<GossiperImpl>>(),
