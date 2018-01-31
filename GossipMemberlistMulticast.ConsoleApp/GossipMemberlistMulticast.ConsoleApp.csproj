@@ -12,6 +12,9 @@
     <Content Include="config.ini">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="nlog.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
@@ -20,10 +23,11 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Ini" Version="2.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="2.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="2.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="2.0.0" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="2.0.0" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="2.0.0" />
     <PackageReference Include="NETStandard.Library" Version="2.0.1" />
+    <PackageReference Include="NLog" Version="4.5.0-rc04" />
+    <PackageReference Include="NLog.Extensions.Logging" Version="1.0.0-rtm-rc6" />
   </ItemGroup>
 
   <ItemGroup>

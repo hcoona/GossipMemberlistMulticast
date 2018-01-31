@@ -5,6 +5,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NLog.Config;
+using NLog.Extensions.Logging;
+using LogManager = NLog.LogManager;
 
 namespace GossipMemberlistMulticast.ConsoleApp
 {
@@ -12,10 +15,12 @@ namespace GossipMemberlistMulticast.ConsoleApp
     {
         internal static async Task Main(string[] args)
         {
+            LogManager.Configuration = new XmlLoggingConfiguration("nlog.config");
+
             var configuration = BuildConfiguration(args);
             var services = new ServiceCollection();
             services.AddSingleton(configuration);
-            services.AddLogging(b => b.AddConsole(opt => opt.IncludeScopes = true).SetMinimumLevel(LogLevel.Information));
+            services.AddLogging(b => b.AddNLog().SetMinimumLevel(LogLevel.Trace));
             services.Configure<ClusterOptions>(configuration.GetSection("Cluster"));
 
             var selfNodeEndpoint = configuration.GetValue<string>("Root:EndPoint");
