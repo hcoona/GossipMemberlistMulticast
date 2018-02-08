@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,6 +27,9 @@ namespace GossipMemberlistMulticast.ConsoleApp
                 "{0}/v1/Frameworks/{1}",
                 Environment.GetEnvironmentVariable("LAUNCHER_ADDRESS"),
                 Environment.GetEnvironmentVariable("FRAMEWORK_NAME"));
+
+            logger.LogInformation("BindingPort = {0}", BindingPort);
+            logger.LogInformation("LauncherTrackingUri = {0}", LauncherTrackingUri);
         }
 
         private int BindingPort { get; }
@@ -34,25 +38,36 @@ namespace GossipMemberlistMulticast.ConsoleApp
 
         public async Task<IEnumerable<string>> GetSeedsEndpointAsync(CancellationToken cancellationToken = default)
         {
-            string frameworkStatusResponseContent;
-            using (var client = new HttpClient())
+            try
             {
-                var responseMsg = await client.GetAsync(LauncherTrackingUri, cancellationToken);
-                responseMsg.EnsureSuccessStatusCode();
-                frameworkStatusResponseContent = await responseMsg.Content.ReadAsStringAsync();
+                string frameworkStatusResponseContent;
+                using (var client = new HttpClient())
+                {
+                    var responseMsg = await client.GetAsync(LauncherTrackingUri, cancellationToken);
+                    responseMsg.EnsureSuccessStatusCode();
+                    frameworkStatusResponseContent = await responseMsg.Content.ReadAsStringAsync();
+                }
+
+                logger.LogTrace("Parsing IP addresses from framework status");
+                var ipAddresses = ParseIpAddressesFromFrameworkStatus(frameworkStatusResponseContent);
+
+                return ipAddresses.Select(ip => $"{ip}:{BindingPort}").ToArray();
             }
-
-            logger.LogTrace("Parsing IP addresses from framework status");
-            var ipAddresses = ParseIpAddressesFromFrameworkStatus(frameworkStatusResponseContent);
-
-            return ipAddresses.Select(ip => $"{ip}:{BindingPort}").ToArray();
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to get seeds endpoint: {0}", ex.Message);
+                return Enumerable.Empty<string>();
+            }
         }
 
         private static IList<string> ParseIpAddressesFromFrameworkStatus(string content)
         {
             dynamic contentObj = JsonConvert.DeserializeObject(content);
             JArray taskStatusArray = contentObj.AggregatedTaskRoleStatuses.SaaS.TaskStatuses.TaskStatusArray;
-            return taskStatusArray.Select(item => item["ContainerIPAddress"].ToString()).ToArray();
+            return taskStatusArray
+                .Select(item => item["ContainerIPAddress"].ToString())
+                .Where(ipString => IPAddress.TryParse(ipString, out var ignored))
+                .ToArray();
         }
     }
 }
