@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Grpc.Core;
 using Microsoft.Extensions.Configuration;
@@ -39,10 +41,22 @@ namespace GossipMemberlistMulticast.ConsoleApp
                 return new Gossiper.GossiperClient(channel);
             });
 
-            services.AddScoped(serviceProvider => Node.Create(
-                selfNodeEndpoint,
-                () => serviceProvider.GetRequiredService<ISeedDiscoverPlugin>().GetSeedsEndpointAsync().GetAwaiter().GetResult(),
-                () => serviceProvider.GetRequiredService<ILogger<Node>>()));
+            services.AddScoped(serviceProvider =>
+            {
+                var seedDiscoverPlugin = serviceProvider.GetRequiredService<ISeedDiscoverPlugin>();
+                IList<string> seedsEndpoint = seedDiscoverPlugin.GetSeedsEndpointAsync().GetAwaiter().GetResult().ToArray();
+                while (!seedsEndpoint.Any())
+                {
+                    var logger2 = serviceProvider.GetRequiredService<ILogger<Program>>();
+                    logger2.LogInformation("Wait 1s to reload seeds");
+                    Task.Delay(1000).GetAwaiter().GetResult();
+                    seedsEndpoint = seedDiscoverPlugin.GetSeedsEndpointAsync().GetAwaiter().GetResult().ToArray();
+                }
+                return Node.Create(
+                    selfNodeEndpoint,
+                    seedsEndpoint,
+                    () => serviceProvider.GetRequiredService<ILogger<Node>>());
+            });
             services.AddScoped(serviceProvider => new GossiperImpl(
                 serviceProvider.GetRequiredService<ILogger<GossiperImpl>>(),
                 clientFactory,
@@ -89,6 +103,11 @@ namespace GossipMemberlistMulticast.ConsoleApp
         private static IConfiguration BuildConfiguration(string[] args)
         {
             return new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string>
+                {
+                    { "SeedDiscoverPlugin:FrameworkLauncher:LauncherAddress", Environment.GetEnvironmentVariable("LAUNCHER_ADDRESS") },
+                    { "SeedDiscoverPlugin:FrameworkLauncher:FrameworkName", Environment.GetEnvironmentVariable("FRAMEWORK_NAME") }
+                })
                 .AddIniFile("config.ini")
                 .AddCommandLine(args)
                 .Build();

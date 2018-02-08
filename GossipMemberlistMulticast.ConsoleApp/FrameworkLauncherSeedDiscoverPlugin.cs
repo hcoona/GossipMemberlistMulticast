@@ -25,8 +25,8 @@ namespace GossipMemberlistMulticast.ConsoleApp
             BindingPort = int.Parse(configuration.GetValue<string>("Root:EndPoint").Split(new[] { ':' }, 2)[1]);
             LauncherTrackingUri = string.Format(
                 "{0}/v1/Frameworks/{1}",
-                Environment.GetEnvironmentVariable("LAUNCHER_ADDRESS"),
-                Environment.GetEnvironmentVariable("FRAMEWORK_NAME"));
+                configuration.GetValue<string>("SeedDiscoverPlugin:FrameworkLauncher:LauncherAddress"),
+                configuration.GetValue<string>("SeedDiscoverPlugin:FrameworkLauncher:FrameworkName"));
 
             logger.LogInformation("BindingPort = {0}", BindingPort);
             logger.LogInformation("LauncherTrackingUri = {0}", LauncherTrackingUri);
@@ -63,7 +63,7 @@ namespace GossipMemberlistMulticast.ConsoleApp
         private static IList<string> ParseIpAddressesFromFrameworkStatus(string content)
         {
             dynamic contentObj = JsonConvert.DeserializeObject(content);
-            JArray taskStatusArray = contentObj.AggregatedTaskRoleStatuses.SaaS.TaskStatuses.TaskStatusArray;
+            JArray taskStatusArray = contentObj.AggregatedTaskRoleStatuses.GossipMemberlistMulticast.TaskStatuses.TaskStatusArray;
             return taskStatusArray
                 .Select(item => item["ContainerIPAddress"].ToString())
                 .Where(ipString => IPAddress.TryParse(ipString, out var ignored))

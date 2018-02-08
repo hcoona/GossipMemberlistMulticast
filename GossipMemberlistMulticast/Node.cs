@@ -9,11 +9,11 @@ namespace GossipMemberlistMulticast
     {
         public static Node Create(
             string selfNodeEndpoint,
-            Func<IEnumerable<string>> seedsEndpointProvider,
+            IEnumerable<string> seedsEndpoint,
             Func<ILogger<Node>> loggerFactory)
         {
             var selfNodeInformation = NodeInformation.CreateSelfNode(selfNodeEndpoint);
-            var seedsNodeInformation = seedsEndpointProvider.Invoke()
+            var seedsNodeInformation = seedsEndpoint
                 .Where(n => n != selfNodeEndpoint)
                 .Select(NodeInformation.CreateSeedNode)
                 .ToArray();
