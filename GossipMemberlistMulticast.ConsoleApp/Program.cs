@@ -21,10 +21,14 @@ namespace GossipMemberlistMulticast.ConsoleApp
             var services = new ServiceCollection();
             services.AddSingleton(configuration);
             services.AddLogging(b => b.AddNLog().SetMinimumLevel(LogLevel.Trace));
+#if false
             services.AddSingleton<ISeedDiscoverPlugin>(
                 new StaticSeedDiscoverPlugin(
                    configuration.GetValue<string>("Root:Seeds")
                        .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)));
+#else
+            services.AddSingleton<ISeedDiscoverPlugin, FrameworkLauncherSeedDiscoverPlugin>();
+#endif
             services.Configure<ClusterOptions>(configuration.GetSection("Cluster"));
 
             var selfNodeEndpoint = configuration.GetValue<string>("Root:EndPoint");
