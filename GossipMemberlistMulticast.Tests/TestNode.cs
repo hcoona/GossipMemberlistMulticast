@@ -26,7 +26,7 @@ namespace GossipMemberlistMulticast.Tests
         }
 
         private Node CreateNode(string selfEndpoint, IEnumerable<string> seedsEndpoint) =>
-            Node.Create(selfEndpoint, () => seedsEndpoint, () => nodeLogger);
+            Node.Create(selfEndpoint, seedsEndpoint, () => nodeLogger);
 
         [Fact]
         public void TestInitialState()

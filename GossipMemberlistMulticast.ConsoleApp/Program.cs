@@ -31,10 +31,16 @@ namespace GossipMemberlistMulticast.ConsoleApp
                 return new Gossiper.GossiperClient(channel);
             });
 
-            services.AddScoped(serviceProvider => Node.Create(
-                selfNodeEndpoint,
-                () => configuration.GetValue<string>("Root:Seeds").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries),
-                () => serviceProvider.GetRequiredService<ILogger<Node>>()));
+            services.AddScoped(serviceProvider =>
+            {
+                var seedsEndpoint = serviceProvider.GetRequiredService<IConfiguration>()
+                    .GetValue<string>("Root:Seeds")
+                    .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                return Node.Create(
+                  selfNodeEndpoint,
+                  seedsEndpoint,
+                  () => serviceProvider.GetRequiredService<ILogger<Node>>());
+            });
             services.AddScoped(serviceProvider => new GossiperImpl(
                 serviceProvider.GetRequiredService<ILogger<GossiperImpl>>(),
                 clientFactory,
